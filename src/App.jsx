@@ -8,7 +8,7 @@ import React, { useState, useMemo } from "react";
 const API_URL = "/api/prediseno";
 
 // Reemplace por la URL de su formulario en formspree.io (gratis, sin código) — ver README.md
-const LEAD_FORM_URL = "https://formspree.io/f/SU_ID_DE_FORMULARIO";
+const LEAD_FORM_URL = "https://formspree.io/f/xjgnpzlo";
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
