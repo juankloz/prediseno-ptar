@@ -43,16 +43,19 @@ y la función funcionando juntas.
 3. Pegue esa URL en `LEAD_FORM_URL`, dentro de `src/App.jsx`
 4. Cada persona que use la herramienta le llegará a su correo automáticamente
 
-## Paso 4 — Configurar su número y volver a publicar
+## Paso 4 — Configurar su número de WhatsApp (sin exponerlo en el código)
 
-1. En `src/App.jsx`, reemplace `WHATSAPP_NUMBER` por su número real
-2. Guarde, y vuelva a subir el cambio:
-   ```
-   git add .
-   git commit -m "Configurar WhatsApp y Formspree"
-   git push
-   ```
-   Vercel republica solo, automáticamente, en menos de un minuto.
+El número NO va en ningún archivo — vive como variable de entorno en Vercel, así nunca
+aparece en el código fuente ni en la URL que ve el usuario:
+
+1. En el proyecto en Vercel, vaya a "Settings" → "Environment Variables"
+2. Cree una variable: nombre `WHATSAPP_NUMBER`, valor su número en formato internacional
+   sin `+` ni espacios (ej. `573001234567`)
+3. Guarde y, en la pestaña "Deployments", use "Redeploy" en el último despliegue para que
+   tome la variable nueva
+
+El botón "Agendar revisión" y el código QR seguirán funcionando igual — ahora apuntan a una
+función propia (`/api/chat`) que arma el enlace de WhatsApp en el servidor.
 
 ## Opcional — usar su propio dominio (la página que ya tiene)
 
