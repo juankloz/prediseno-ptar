@@ -1,14 +1,14 @@
 import React, { useState, useMemo } from "react";
 
-// Reemplace por su número real de WhatsApp, formato internacional sin "+" ni espacios (ej. 573001234567)
-const WHATSAPP_NUMBER = "573173002242";
+// El número de WhatsApp ya no vive aquí — vive en una variable de entorno en Vercel
+// y lo resuelve la función api/chat.js, para que no quede visible en el código ni en la URL.
 
 // Como el frontend y la función /api se despliegan juntos en el mismo proyecto de Vercel,
 // esta ruta relativa funciona sin configurar ninguna URL.
 const API_URL = "/api/prediseno";
 
 // Reemplace por la URL de su formulario en formspree.io (gratis, sin código) — ver README.md
-const LEAD_FORM_URL = "https://formspree.io/f/xjgnpzlo";
+const LEAD_FORM_URL = "https://formspree.io/f/SU_ID_DE_FORMULARIO";
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -59,6 +59,15 @@ const VERTIMIENTO_LABELS = {
 
 // La lógica de decisión (buildTrain / getNormativa) vive en api/prediseno.js,
 // no aquí, para no exponerla en el navegador.
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Acepta números con o sin +, entre 7 y 15 dígitos (rango internacional válido)
+const PHONE_RE = /^\+?[0-9][0-9\s-]{6,14}$/;
+
+function isValidContact(value) {
+  const v = value.trim();
+  return EMAIL_RE.test(v) || PHONE_RE.test(v);
+}
 
 function Field({ label, children }) {
   return (
@@ -140,6 +149,10 @@ export default function App() {
       setLeadError("Ingrese su nombre y un correo o WhatsApp de contacto.");
       return;
     }
+    if (!isValidContact(leadContact)) {
+      setLeadError("Ingrese un correo válido (ej. nombre@dominio.com) o un número de WhatsApp válido (ej. 3001234567).");
+      return;
+    }
     setLeadError("");
     setLeadSaving(true);
     try {
@@ -164,8 +177,16 @@ export default function App() {
     }
   }
 
-  const whatsappHref = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-    `Hola, quiero agendar una revisión de mi prediseño.\nActividad: ${ACTIVITY_PROFILES[actividad].label}\nCaudal: ${caudal} L/s\nVertimiento: ${VERTIMIENTO_LABELS[puntoVertimiento]}`
+  const chatHref = `/api/chat?caudal=${encodeURIComponent(caudal)}&actividad=${encodeURIComponent(
+    ACTIVITY_PROFILES[actividad].label
+  )}&vertimiento=${encodeURIComponent(VERTIMIENTO_LABELS[puntoVertimiento])}`;
+
+  // URL absoluta necesaria para que el QR funcione al escanearlo desde otro dispositivo
+  const chatHrefAbsolute =
+    typeof window !== "undefined" ? `${window.location.origin}${chatHref}` : chatHref;
+
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+    chatHrefAbsolute
   )}`;
 
   return (
@@ -380,15 +401,23 @@ export default function App() {
                 Marco normativo de referencia: {remoteResult?.normativa}
               </div>
 
-              <a
-                href={whatsappHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-6 inline-block px-6 py-3 text-xs uppercase tracking-widest"
-                style={{ background: TOKENS.rust, color: TOKENS.ink, fontFamily: "'IBM Plex Mono', monospace", textDecoration: "none" }}
-              >
-                Agendar revisión con un ingeniero →
-              </a>
+              <div className="mt-6 flex flex-wrap items-center gap-6">
+                <a
+                  href={chatHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block px-6 py-3 text-xs uppercase tracking-widest"
+                  style={{ background: TOKENS.rust, color: TOKENS.ink, fontFamily: "'IBM Plex Mono', monospace", textDecoration: "none" }}
+                >
+                  Agendar revisión con un ingeniero →
+                </a>
+                <div className="flex items-center gap-3">
+                  <img src={qrSrc} alt="Código QR para agendar por WhatsApp" width={80} height={80} style={{ background: "#fff", padding: "4px" }} />
+                  <span className="text-xs" style={{ color: TOKENS.inkDim, fontFamily: "'IBM Plex Mono', monospace" }}>
+                    O escanea desde tu celular
+                  </span>
+                </div>
+              </div>
             </>
           )}
         </section>
