@@ -28,6 +28,29 @@ function getNormativa(punto) {
   return "Decreto 1076 de 2015 (uso del suelo) + criterios de la autoridad ambiental regional para reúso/infiltración.";
 }
 
+// Rangos de CAPEX ilustrativos en millones de COP, por unidad, para una escala pequeña-mediana.
+// AJUSTAR con cifras reales de campo antes de usarlos comercialmente — son un punto de partida,
+// no un presupuesto validado.
+const COSTOS_COP_MILLONES = {
+  "Cribado / rejillas": [3, 8],
+  Desarenador: [5, 12],
+  "Trampa de grasas": [4, 10],
+  "Flotación por aire disuelto (DAF)": [15, 35],
+  "Ajuste de pH (neutralización)": [6, 15],
+  "Sedimentación primaria / tanque Imhoff": [10, 25],
+  "Reactor anaerobio (UASB / laguna anaerobia)": [20, 60],
+  "Tratamiento aerobio (lodos activados / laguna facultativa)": [25, 70],
+  "Reactor anaerobio de flujo ascendente (RAFA / UASB)": [15, 40],
+  "Filtro percolador / humedal artificial": [10, 30],
+  "Filtro anaerobio de flujo ascendente (FAFA)": [8, 20],
+  "Desinfección (cloración o UV)": [5, 15],
+  "Desinfección + filtración final": [8, 18],
+};
+
+function formatCOP(millones) {
+  return `$${millones.toLocaleString("es-CO")}M`;
+}
+
 function buildTrain(profile, puntoVertimiento) {
   const units = [];
 
@@ -119,10 +142,24 @@ function buildTrain(profile, puntoVertimiento) {
     });
   }
 
-  return units;
+  return units.map((u) => {
+    const rango = COSTOS_COP_MILLONES[u.nombre];
+    return { ...u, costoEstimado: rango ? { min: rango[0], max: rango[1] } : null };
+  });
 }
 
-//module.exports = async function handler(req, res) {
+function calcularCapexTotal(units) {
+  let min = 0;
+  let max = 0;
+  for (const u of units) {
+    if (u.costoEstimado) {
+      min += u.costoEstimado.min;
+      max += u.costoEstimado.max;
+    }
+  }
+  return { min, max, texto: `${formatCOP(min)} – ${formatCOP(max)} COP` };
+}
+
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Use POST" });
@@ -148,8 +185,9 @@ export default async function handler(req, res) {
 
     const units = buildTrain(profile, puntoVertimiento);
     const normativa = getNormativa(puntoVertimiento);
+    const capex = calcularCapexTotal(units);
 
-    return res.status(200).json({ profile, units, normativa });
+    return res.status(200).json({ profile, units, normativa, capex });
   } catch (err) {
     return res.status(500).json({ error: "Error interno" });
   }
