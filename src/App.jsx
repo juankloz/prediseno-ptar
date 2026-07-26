@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 
 // Reemplace por su número real de WhatsApp, formato internacional sin "+" ni espacios (ej. 573001234567)
-const WHATSAPP_NUMBER = "573001234567";
+const WHATSAPP_NUMBER = "573173002242";
 
 // Como el frontend y la función /api se despliegan juntos en el mismo proyecto de Vercel,
 // esta ruta relativa funciona sin configurar ninguna URL.
