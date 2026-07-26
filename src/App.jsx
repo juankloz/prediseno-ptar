@@ -3,15 +3,27 @@ import React, { useState, useMemo } from "react";
 // El número de WhatsApp ya no vive aquí — vive en una variable de entorno en Vercel
 // y lo resuelve la función api/chat.js, para que no quede visible en el código ni en la URL.
 
+// Reemplace por su link de pago de Wompi o Bold (se genera sin código desde su panel — ver README.md)
+const PAYMENT_LINK = "https://checkout.wompi.co/l/SU_LINK_DE_PAGO";
+
 // Como el frontend y la función /api se despliegan juntos en el mismo proyecto de Vercel,
 // esta ruta relativa funciona sin configurar ninguna URL.
 const API_URL = "/api/prediseno";
 
 // Reemplace por la URL de su formulario en formspree.io (gratis, sin código) — ver README.md
-const LEAD_FORM_URL = "https://formspree.io/f/xjgnpzlo";
+const LEAD_FORM_URL = "https://formspree.io/f/SU_ID_DE_FORMULARIO";
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+@media print {
+  body * { visibility: hidden; }
+  #reporte-imprimible, #reporte-imprimible * { visibility: visible; }
+  #reporte-imprimible { position: absolute; top: 0; left: 0; width: 100%; background: #fff !important; }
+  #reporte-imprimible * { color: #000 !important; border-color: #999 !important; }
+  #reporte-imprimible .print-header { display: block !important; margin-bottom: 1rem; }
+  #reporte-imprimible button { display: none !important; }
+}
 `;
 
 const TOKENS = {
@@ -111,6 +123,11 @@ export default function App() {
   const [remoteResult, setRemoteResult] = useState(null);
   const [remoteLoading, setRemoteLoading] = useState(false);
   const [remoteError, setRemoteError] = useState("");
+
+  const paid = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("pagado") === "1";
+  }, []);
 
   const profilePreview = useMemo(() => {
     if (!tieneParametros) return ACTIVITY_PROFILES[actividad];
@@ -400,6 +417,73 @@ export default function App() {
               <div className="mt-4 p-4 text-xs leading-relaxed rounded-sm" style={{ border: `1px solid ${TOKENS.grid}`, color: TOKENS.inkDim, fontFamily: "'IBM Plex Mono', monospace" }}>
                 Marco normativo de referencia: {remoteResult?.normativa}
               </div>
+
+              {!paid ? (
+                <div className="mt-6 p-6 rounded-sm max-w-lg" style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.brass}` }}>
+                  <div className="text-xs uppercase tracking-widest mb-2" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
+                    Reporte completo — $50.000 COP
+                  </div>
+                  <p className="text-sm mb-3" style={{ color: TOKENS.inkDim }}>
+                    Incluye estimado de inversión (CAPEX) por unidad, el rango total del sistema,
+                    y un PDF con su marca listo para compartir o archivar.
+                  </p>
+                  <p className="text-xs mb-4" style={{ color: TOKENS.inkDim, fontFamily: "'IBM Plex Mono', monospace" }}>
+                    Estimado de inversión: 🔒 disponible tras la compra
+                  </p>
+                  <a
+                    href={PAYMENT_LINK}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block px-6 py-3 text-xs uppercase tracking-widest"
+                    style={{ background: TOKENS.brass, color: TOKENS.blueprintDeep, fontFamily: "'IBM Plex Mono', monospace", textDecoration: "none" }}
+                  >
+                    Comprar reporte completo →
+                  </a>
+                </div>
+              ) : (
+                <div id="reporte-imprimible" className="mt-6 p-6 rounded-sm" style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.brass}` }}>
+                  <div className="print-header" style={{ display: "none" }}>
+                    <h2>Prediseño de PTAR — Reporte completo</h2>
+                    <p>JuanKloz · Ingeniería, agua y consultoría ambiental</p>
+                    <p>
+                      Actividad: {ACTIVITY_PROFILES[actividad].label} · Caudal: {caudal} L/s · Vertimiento:{" "}
+                      {VERTIMIENTO_LABELS[puntoVertimiento]}
+                    </p>
+                  </div>
+
+                  <div className="text-xs uppercase tracking-widest mb-3" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
+                    Estimado de inversión (CAPEX) — orden de magnitud
+                  </div>
+                  <table className="w-full text-sm mb-3" style={{ color: TOKENS.ink, borderCollapse: "collapse" }}>
+                    <tbody>
+                      {(remoteResult?.units || [])
+                        .filter((u) => u.costoEstimado)
+                        .map((u, i) => (
+                          <tr key={i} style={{ borderBottom: `1px solid ${TOKENS.grid}` }}>
+                            <td className="py-2 pr-4">{u.nombre}</td>
+                            <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                              ${u.costoEstimado.min}M – ${u.costoEstimado.max}M COP
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                  <p className="text-sm mb-4" style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
+                    Total estimado: {remoteResult?.capex?.texto}
+                  </p>
+                  <p className="text-xs mb-4" style={{ color: TOKENS.inkDim }}>
+                    Cifras de orden de magnitud para una escala pequeña-mediana — no reemplazan
+                    una cotización con proveedores reales.
+                  </p>
+                  <button
+                    onClick={() => window.print()}
+                    className="px-6 py-3 text-xs uppercase tracking-widest"
+                    style={{ background: TOKENS.brass, color: TOKENS.blueprintDeep, fontFamily: "'IBM Plex Mono', monospace", border: "none", cursor: "pointer" }}
+                  >
+                    Descargar PDF →
+                  </button>
+                </div>
+              )}
 
               <div className="mt-6 flex flex-wrap items-center gap-6">
                 <a
