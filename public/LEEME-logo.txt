@@ -1,0 +1,8 @@
+Coloque aquí su logo con el nombre exacto: logo.png
+
+Recomendaciones:
+- Fondo transparente (PNG), ancho aproximado 400-600px
+- Se muestra a 60px de alto en el informe descargado — evite logos muy detallados que se vean
+  borrosos a ese tamaño
+- Si el archivo no existe, el navegador simplemente no mostrará nada en ese espacio (no rompe
+  el informe), pero es mejor subirlo antes de compartir el informe con clientes
