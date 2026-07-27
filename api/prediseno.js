@@ -188,6 +188,75 @@ function formatCOP(valor) {
   return `$${Math.round(valor).toLocaleString("es-CO")}`;
 }
 
+// Criterios de diseño dimensional (para las memorias de cálculo del Informe 2) — los mismos
+// usados para construir las ecuaciones de costo. tipo: 'hrt' (horas) o 'carga' (m3/m2·h).
+const DISEÑO_CRITERIOS = {
+  "Cribado / rejillas": { tipo: "hrt", valor: 0.05, H: 0.6, geom: "rect" },
+  Desarenador: { tipo: "carga", valor: 29.2, H: 1.0, geom: "rect" },
+  "Trampa de grasas": { tipo: "hrt", valor: 0.5, H: 1.2, geom: "rect" },
+  "Flotación por aire disuelto (DAF)": { tipo: "carga", valor: 5.0, H: 2.0, geom: "rect" },
+  "Ajuste de pH (neutralización)": { tipo: "hrt", valor: 0.25, H: 1.5, geom: "rect" },
+  "Sedimentación primaria / tanque Imhoff": { tipo: "carga", valor: 1.5, H: 3.0, geom: "rect" },
+  "Filtro percolador / humedal artificial": { tipo: "carga", valor: 1.0, H: 1.5, geom: "rect" },
+  "Desinfección (cloración o UV)": { tipo: "hrt", valor: 0.5, H: 1.2, geom: "rect" },
+  "Desinfección + filtración final": { tipo: "carga", valor: 5.0, H: 2.0, geom: "rect" },
+};
+
+const GEOM_CINETICA = {
+  uasb_alta: { H: 5.0, geom: "cil" },
+  rafa_media: { H: 4.0, geom: "cil" },
+  aerobio: { H: 3.0, geom: "rect" },
+  fafa: { H: 2.5, geom: "cil" },
+};
+
+function areaDeVolumen(V, H, geom) {
+  if (geom === "rect") {
+    const W = Math.sqrt(V / H / 2);
+    const L = 2 * W;
+    return V / H + 2 * H * (L + W);
+  }
+  const D = Math.sqrt((4 * (V / H)) / Math.PI);
+  return Math.PI * D * H + 2 * ((Math.PI * D * D) / 4);
+}
+
+// Memoria de cálculo (volumen, tiempo de retención u carga superficial, área PRFV) para el
+// Informe 2. No afecta el costo del Informe 1 — es la misma geometría que ya sustenta esas
+// ecuaciones, expuesta de forma transparente.
+function memoriaCalculo(nombre, caudalLs, eRequerida) {
+  const Q_m3h = caudalLs * 3.6;
+  const critHidraulico = DISEÑO_CRITERIOS[nombre];
+  if (critHidraulico) {
+    let V, areaPlan;
+    if (critHidraulico.tipo === "hrt") {
+      V = Q_m3h * critHidraulico.valor;
+      areaPlan = V / critHidraulico.H;
+    } else {
+      areaPlan = Q_m3h / critHidraulico.valor;
+      V = areaPlan * critHidraulico.H;
+    }
+    const area = areaDeVolumen(V, critHidraulico.H, critHidraulico.geom);
+    return {
+      volumen_m3: Math.round(V * 10) / 10,
+      criterio: critHidraulico.tipo === "hrt" ? `HRT = ${critHidraulico.valor} h` : `Carga superficial = ${critHidraulico.valor} m³/m²·h`,
+      profundidad_m: critHidraulico.H,
+      area_m2: Math.round(area * 10) / 10,
+    };
+  }
+  const geomCin = GEOM_CINETICA[nombre === "Reactor anaerobio (UASB / laguna anaerobia)" ? "uasb_alta" : nombre === "Reactor anaerobio de flujo ascendente (RAFA / UASB)" ? "rafa_media" : nombre === "Tratamiento aerobio (lodos activados / laguna facultativa)" ? "aerobio" : nombre === "Filtro anaerobio de flujo ascendente (FAFA)" ? "fafa" : null];
+  if (!geomCin || eRequerida == null) return null;
+  const tipoKey = nombre === "Reactor anaerobio (UASB / laguna anaerobia)" ? "uasb_alta" : nombre === "Reactor anaerobio de flujo ascendente (RAFA / UASB)" ? "rafa_media" : nombre === "Tratamiento aerobio (lodos activados / laguna facultativa)" ? "aerobio" : "fafa";
+  const e = Math.max(0.01, Math.min(eRequerida, E_MAX));
+  const theta_d = e / (K_CINETICA[tipoKey] * (1 - e));
+  const V = Q_m3h * 24 * theta_d;
+  const area = areaDeVolumen(V, geomCin.H, geomCin.geom);
+  return {
+    volumen_m3: Math.round(V * 10) / 10,
+    criterio: `Tiempo de retención (según eficiencia requerida) = ${(theta_d * 24).toFixed(1)} h`,
+    profundidad_m: geomCin.H,
+    area_m2: Math.round(area * 10) / 10,
+  };
+}
+
 function buildTrain(profile, puntoVertimiento, caudalLs, actividad) {
   const units = [];
   const advertencias = [];
@@ -275,6 +344,7 @@ function buildTrain(profile, puntoVertimiento, caudalLs, actividad) {
       nombre: "Filtro percolador / humedal artificial",
       nota: "Tratamiento secundario — etapa 2",
       justificacion: "Pulimento aerobio de bajo costo operativo, que recibe el efluente parcialmente tratado del RAFA. Se dimensiona por carga hidráulica superficial, no por tiempo de retención — su costo depende del caudal, no de la eficiencia de remoción.",
+      _eRequerida: eEtapa2,
     });
   } else {
     units.push({
@@ -308,16 +378,26 @@ function buildTrain(profile, puntoVertimiento, caudalLs, actividad) {
     });
   }
 
+  let dbo5Actual = profile.dbo5;
   const unitsConCosto = units.map((u) => {
+    // Calidad de salida: DBO5 remanente después de esta unidad (Informe 2)
+    const eficienciaUnidad = u.nombre === "Sedimentación primaria / tanque Imhoff" ? ETA_PRIMARIA : u._eRequerida || 0;
+    dbo5Actual = dbo5Actual * (1 - eficienciaUnidad);
+    const calidadSalida = { dbo5: Math.round(dbo5Actual) };
+
+    // Memoria de cálculo (Informe 2) — no afecta el costo, solo lo documenta
+    const memoria = memoriaCalculo(u.nombre, caudalLs, u._eRequerida);
+
     if (u._tipoCinetico) {
       const costoEstimado = !caudalLs || caudalLs <= 0 ? null : costoKinetico(u._tipoCinetico, caudalLs, u._eRequerida);
       const { _tipoCinetico, _eRequerida, ...resto } = u;
-      return { ...resto, costoEstimado };
+      return { ...resto, costoEstimado, memoria, calidadSalida };
     }
+    const { _eRequerida, ...resto } = u;
     const params = COST_PARAMS[u.nombre];
-    if (!params || !caudalLs || caudalLs <= 0) return { ...u, costoEstimado: null };
+    if (!params || !caudalLs || caudalLs <= 0) return { ...resto, costoEstimado: null, memoria, calidadSalida };
     const puntual = params.a * Math.pow(caudalLs, params.b);
-    return { ...u, costoEstimado: { min: puntual * 0.8, max: puntual * 1.3 } };
+    return { ...resto, costoEstimado: { min: puntual * 0.8, max: puntual * 1.3 }, memoria, calidadSalida };
   });
 
   return { units: unitsConCosto, eTotal, advertencias };
