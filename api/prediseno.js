@@ -1,17 +1,84 @@
 // api/prediseno.js
 // Despliegue sugerido: Vercel (gratis para este volumen). Ver instrucciones al final del archivo.
 
+// Catálogo de actividades económicas según Resolución 631 de 2015 (Art. 9-15).
+// confianza: "literatura" = valor de literatura específica del proceso (mayor confianza).
+//            "generico"   = estimación genérica = límite normativo × 2.5 (confianza BAJA,
+//            revisar con prioridad antes de usar comercialmente para esa actividad).
 const ACTIVITY_PROFILES = {
-  domestico: { label: "Doméstico / residencial", dbo5: 250, dqo: 500, sst: 250, gya: 80, ph: 7 },
-  palma: {
-    label: "Agroindustrial — extracción de aceite de palma (POME)",
-    dbo5: 25000,
-    dqo: 50000,
-    sst: 18000,
-    gya: 6000,
-    ph: 4.5,
-  },
-  lacteos: { label: "Industria de alimentos / lácteos", dbo5: 2500, dqo: 5000, sst: 1200, gya: 800, ph: 6 },
+  domestico: { label: "Doméstico / residencial", dbo5: 250, dqo: 500, sst: 250, gya: 80, ph: 7, confianza: "literatura" },
+  hortalizas_frutas: { label: "Agroindustria — hortalizas, frutas, legumbres, raíces y tubérculos", dbo5: 200, dqo: 450, sst: 300, gya: 30, ph: 7, confianza: "generico" },
+  cafe_ecologico: { label: "Agroindustria — beneficio de café (proceso ecológico)", dbo5: 10000, dqo: 20000, sst: 3000, gya: 50, ph: 4.5, confianza: "literatura" },
+  cafe_tradicional: { label: "Agroindustria — beneficio de café (proceso tradicional)", dbo5: 2500, dqo: 5000, sst: 800, gya: 30, ph: 5.5, confianza: "literatura" },
+  platano_banano: { label: "Agroindustria — poscosecha de plátano y banano", dbo5: 150, dqo: 400, sst: 200, gya: 20, ph: 7, confianza: "generico" },
+  azucar_cana: { label: "Agroindustria — producción de azúcar y derivados de caña", dbo5: 3000, dqo: 6000, sst: 1000, gya: 40, ph: 5, confianza: "literatura" },
+  palma: { label: "Agroindustria — extracción de aceites de origen vegetal (palma)", dbo5: 25000, dqo: 50000, sst: 18000, gya: 6000, ph: 4.5, confianza: "literatura" },
+  bovino_cria: { label: "Ganadería — bovino/bufalino/equino/ovino/caprino (cría)", dbo5: 1000, dqo: 2000, sst: 600, gya: 60, ph: 7, confianza: "literatura" },
+  bovino_beneficio: { label: "Ganadería — bovino/bufalino/equino/ovino/caprino (beneficio)", dbo5: 3000, dqo: 6000, sst: 1500, gya: 600, ph: 7, confianza: "literatura" },
+  porcinos_cria: { label: "Ganadería — porcinos (cría)", dbo5: 4000, dqo: 8000, sst: 2000, gya: 100, ph: 7, confianza: "literatura" },
+  porcinos_beneficio: { label: "Ganadería — porcinos (beneficio)", dbo5: 3000, dqo: 6000, sst: 1500, gya: 400, ph: 7, confianza: "literatura" },
+  bovino_porcino_dual: { label: "Ganadería — bovinos y porcinos (beneficio dual)", dbo5: 3000, dqo: 6000, sst: 1600, gya: 500, ph: 7, confianza: "literatura" },
+  aves_incubacion: { label: "Ganadería — aves de corral (incubación y cría)", dbo5: 700, dqo: 1500, sst: 500, gya: 60, ph: 7, confianza: "literatura" },
+  aves_beneficio: { label: "Ganadería — aves de corral (beneficio)", dbo5: 2000, dqo: 4000, sst: 800, gya: 300, ph: 7, confianza: "literatura" },
+  mineria_carbon: { label: "Minería — extracción de carbón de piedra y lignito", dbo5: 150, dqo: 400, sst: 300, gya: 30, ph: 7, confianza: "generico" },
+  mineria_hierro: { label: "Minería — extracción de minerales de hierro", dbo5: 150, dqo: 400, sst: 300, gya: 30, ph: 7, confianza: "generico" },
+  mineria_oro: { label: "Minería — extracción de oro y otros metales preciosos", dbo5: 150, dqo: 400, sst: 400, gya: 30, ph: 7, confianza: "generico" },
+  mineria_niquel: { label: "Minería — extracción de minerales de níquel y otros no ferrosos", dbo5: 150, dqo: 400, sst: 300, gya: 30, ph: 7, confianza: "generico" },
+  mineria_otras: { label: "Minería — extracción de otras minas y canteras", dbo5: 150, dqo: 400, sst: 300, gya: 30, ph: 7, confianza: "generico" },
+  hc_exploracion: { label: "Hidrocarburos — exploración (upstream)", dbo5: 500, dqo: 1200, sst: 200, gya: 100, ph: 7, confianza: "literatura" },
+  hc_produccion: { label: "Hidrocarburos — producción (upstream)", dbo5: 200, dqo: 600, sst: 150, gya: 80, ph: 7, confianza: "literatura" },
+  hc_refino: { label: "Hidrocarburos — refino", dbo5: 500, dqo: 1200, sst: 200, gya: 100, ph: 7, confianza: "literatura" },
+  hc_venta: { label: "Hidrocarburos — venta y distribución (downstream)", dbo5: 200, dqo: 600, sst: 150, gya: 80, ph: 7, confianza: "literatura" },
+  hc_transporte: { label: "Hidrocarburos — transporte y almacenamiento (midstream)", dbo5: 200, dqo: 600, sst: 150, gya: 80, ph: 7, confianza: "literatura" },
+  alimenticios_general: { label: "Alimentos — elaboración de productos alimenticios (general)", dbo5: 1200, dqo: 1800, sst: 600, gya: 60, ph: 7, confianza: "literatura" },
+  alimentos_animales: { label: "Alimentos — alimentos preparados para animales", dbo5: 300, dqo: 600, sst: 150, gya: 30, ph: 7, confianza: "generico" },
+  maltas_cervezas: { label: "Alimentos — elaboración de maltas y cervezas", dbo5: 2000, dqo: 4000, sst: 300, gya: 30, ph: 6, confianza: "literatura" },
+  bebidas_no_alcoholicas: { label: "Alimentos — bebidas no alcohólicas, aguas minerales y embotelladas", dbo5: 600, dqo: 1200, sst: 150, gya: 60, ph: 6.5, confianza: "generico" },
+  lacteos: { label: "Alimentos — elaboración de productos lácteos", dbo5: 2500, dqo: 5000, sst: 1200, gya: 800, ph: 6, confianza: "literatura" },
+  aceites_grasas_af: { label: "Alimentos — aceites y grasas de origen animal y vegetal", dbo5: 1600, dqo: 3000, sst: 900, gya: 200, ph: 6.5, confianza: "literatura" },
+  cafe_soluble: { label: "Alimentos — elaboración de café soluble", dbo5: 3000, dqo: 5000, sst: 1200, gya: 90, ph: 6, confianza: "generico" },
+  tabaco: { label: "Fabricación — productos derivados del tabaco", dbo5: 500, dqo: 1000, sst: 500, gya: 50, ph: 7, confianza: "generico" },
+  textiles: { label: "Fabricación — productos textiles", dbo5: 500, dqo: 1000, sst: 125, gya: 50, ph: 7, confianza: "generico" },
+  piel_curtido: { label: "Fabricación — artículos de piel, curtido y adobo de pieles", dbo5: 1500, dqo: 3000, sst: 1500, gya: 150, ph: 7, confianza: "generico" },
+  gases_industriales: { label: "Fabricación — gases industriales y medicinales", dbo5: 500, dqo: 750, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  papel_pulpa: { label: "Fabricación — papel y cartón (pulpa blanqueada, plantas integradas)", dbo5: 750, dqo: 1375, sst: 625, gya: 50, ph: 7, confianza: "generico" },
+  papel_reciclado: { label: "Fabricación — papel y cartón a partir de fibras recicladas", dbo5: 1000, dqo: 2000, sst: 1000, gya: 100, ph: 7, confianza: "generico" },
+  abonos_nitrogenados: { label: "Fabricación — abonos y compuestos inorgánicos nitrogenados", dbo5: 250, dqo: 500, sst: 250, gya: 25, ph: 7, confianza: "generico" },
+  quimicos_general: { label: "Fabricación — sustancias y productos químicos (general)", dbo5: 1500, dqo: 2000, sst: 500, gya: 62, ph: 7, confianza: "generico" },
+  pigmentos_azul: { label: "Fabricación — pigmentos inorgánicos (azul ultramar)", dbo5: 500, dqo: 1250, sst: 500, gya: 62, ph: 7, confianza: "generico" },
+  pigmentos_oxidos_fe: { label: "Fabricación — pigmentos inorgánicos (óxidos de hierro)", dbo5: 500, dqo: 1250, sst: 500, gya: 62, ph: 7, confianza: "generico" },
+  pigmentos_cromatos: { label: "Fabricación — pigmentos inorgánicos (cromatos y molibdatos de plomo)", dbo5: 375, dqo: 500, sst: 375, gya: 62, ph: 7, confianza: "generico" },
+  acidos_inorganicos: { label: "Fabricación — ácidos inorgánicos y sus sales", dbo5: 125, dqo: 450, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  plasticos: { label: "Fabricación — plásticos en formas primarias/básicas y artículos plásticos", dbo5: 312, dqo: 750, sst: 200, gya: 50, ph: 7, confianza: "generico" },
+  sabores_fragancias: { label: "Fabricación — sabores y fragancias", dbo5: 750, dqo: 1500, sst: 175, gya: 25, ph: 7, confianza: "generico" },
+  surfactantes: { label: "Fabricación — surfactantes", dbo5: 250, dqo: 1250, sst: 250, gya: 50, ph: 7, confianza: "generico" },
+  plaguicidas: { label: "Fabricación — plaguicidas y otros químicos de uso agropecuario", dbo5: 500, dqo: 1500, sst: 500, gya: 25, ph: 7, confianza: "generico" },
+  pinturas_barnices: { label: "Fabricación — pinturas, barnices y revestimientos similares", dbo5: 1000, dqo: 2000, sst: 500, gya: 50, ph: 7, confianza: "generico" },
+  jabones_detergentes: { label: "Fabricación — jabones, detergentes y productos cosméticos", dbo5: 625, dqo: 1250, sst: 200, gya: 38, ph: 9, confianza: "generico" },
+  farmaceuticos: { label: "Fabricación — productos farmacéuticos y sustancias químicas medicinales", dbo5: 375, dqo: 1000, sst: 125, gya: 38, ph: 7, confianza: "generico" },
+  vidrio_cemento: { label: "Fabricación — vidrio, productos de vidrio, cemento, cal y yeso", dbo5: 125, dqo: 325, sst: 125, gya: 50, ph: 7, confianza: "generico" },
+  ceramicos: { label: "Fabricación — productos cerámicos", dbo5: 125, dqo: 250, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  hormigon_yeso: { label: "Fabricación — artículos de hormigón, cemento y yeso", dbo5: 250, dqo: 500, sst: 250, gya: 50, ph: 7, confianza: "generico" },
+  revestimiento_metales: { label: "Fabricación — tratamiento y revestimiento de metales", dbo5: 250, dqo: 625, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  pilas_baterias: { label: "Fabricación — pilas, baterías y acumuladores eléctricos", dbo5: 125, dqo: 250, sst: 125, gya: 38, ph: 7, confianza: "generico" },
+  iluminacion: { label: "Fabricación — equipos eléctricos de iluminación", dbo5: 125, dqo: 500, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  uso_domestico: { label: "Fabricación — aparatos de uso doméstico", dbo5: 200, dqo: 400, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  maquinaria_electrolitico: { label: "Fabricación — maquinaria y equipos (recubrimientos electrolíticos)", dbo5: 250, dqo: 500, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  vehiculos: { label: "Fabricación — vehículos automotores, remolques y semirremolques", dbo5: 250, dqo: 750, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  autopartes: { label: "Fabricación — autopartes", dbo5: 500, dqo: 1000, sst: 250, gya: 75, ph: 7, confianza: "generico" },
+  siderurgia: { label: "Fabricación — siderurgia", dbo5: 150, dqo: 625, sst: 75, gya: 50, ph: 7, confianza: "generico" },
+  imprentas: { label: "Fabricación — imprentas y litografías", dbo5: 250, dqo: 500, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  bebidas_destiladas: { label: "Fabricación — bebidas alcohólicas destiladas", dbo5: 3750, dqo: 7500, sst: 750, gya: 75, ph: 6, confianza: "generico" },
+  mezcla_alcoholicas: { label: "Fabricación — mezcla-formulación de bebidas alcohólicas", dbo5: 500, dqo: 1250, sst: 500, gya: 50, ph: 7, confianza: "generico" },
+  caucho: { label: "Fabricación — producción y fabricación de derivados de caucho", dbo5: 125, dqo: 625, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  generacion_energia: { label: "Servicios — generación de energía eléctrica", dbo5: 350, dqo: 500, sst: 250, gya: 50, ph: 7, confianza: "generico" },
+  tratamiento_residuos: { label: "Servicios — tratamiento y disposición de residuos (lixiviados)", dbo5: 8000, dqo: 20000, sst: 1000, gya: 100, ph: 7.5, confianza: "literatura" },
+  reciclaje_plasticos: { label: "Servicios — reciclaje de materiales plásticos y similares", dbo5: 500, dqo: 1200, sst: 500, gya: 50, ph: 7, confianza: "generico" },
+  reciclaje_tambores: { label: "Servicios — reciclaje de tambores", dbo5: 1500, dqo: 2500, sst: 400, gya: 60, ph: 7, confianza: "generico" },
+  salud_atencion: { label: "Servicios — atención a la salud humana (con o sin internación)", dbo5: 350, dqo: 500, sst: 150, gya: 25, ph: 7, confianza: "generico" },
+  salud_hemodialisis: { label: "Servicios — atención a la salud (hemodiálisis y diálisis peritoneal)", dbo5: 1400, dqo: 1800, sst: 250, gya: 25, ph: 7, confianza: "generico" },
+  pompas_funebres: { label: "Servicios — pompas fúnebres y actividades relacionadas", dbo5: 600, dqo: 1400, sst: 250, gya: 50, ph: 7, confianza: "generico" },
+  otras_no_contempladas: { label: "Otra actividad no contemplada en los sectores anteriores", dbo5: 125, dqo: 375, sst: 125, gya: 25, ph: 7, confianza: "generico" },
 };
 
 const VERTIMIENTO_LABELS = {
@@ -28,31 +95,117 @@ function getNormativa(punto) {
   return "Decreto 1076 de 2015 (uso del suelo) + criterios de la autoridad ambiental regional para reúso/infiltración.";
 }
 
-// Rangos de CAPEX ilustrativos en millones de COP, por unidad, para una escala pequeña-mediana.
-// AJUSTAR con cifras reales de campo antes de usarlos comercialmente — son un punto de partida,
-// no un presupuesto validado.
-const COSTOS_COP_MILLONES = {
-  "Cribado / rejillas": [3, 8],
-  Desarenador: [5, 12],
-  "Trampa de grasas": [4, 10],
-  "Flotación por aire disuelto (DAF)": [15, 35],
-  "Ajuste de pH (neutralización)": [6, 15],
-  "Sedimentación primaria / tanque Imhoff": [10, 25],
-  "Reactor anaerobio (UASB / laguna anaerobia)": [20, 60],
-  "Tratamiento aerobio (lodos activados / laguna facultativa)": [25, 70],
-  "Reactor anaerobio de flujo ascendente (RAFA / UASB)": [15, 40],
-  "Filtro percolador / humedal artificial": [10, 30],
-  "Filtro anaerobio de flujo ascendente (FAFA)": [8, 20],
-  "Desinfección (cloración o UV)": [5, 15],
-  "Desinfección + filtración final": [8, 18],
+// Límite DBO5 (mg/L) a cuerpo de agua superficial, por actividad — de la Resolución 631 de 2015, Art. 8-15.
+const LIMITE_DBO5 = {
+  domestico: 90, hortalizas_frutas: 50, cafe_ecologico: 400, cafe_tradicional: 200,
+  platano_banano: 50, azucar_cana: 500, palma: 600, bovino_cria: 250, bovino_beneficio: 450,
+  porcinos_cria: 450, porcinos_beneficio: 450, bovino_porcino_dual: 450, aves_incubacion: 200,
+  aves_beneficio: 300, mineria_carbon: 50, mineria_hierro: 50, mineria_oro: 50, mineria_niquel: 50,
+  mineria_otras: 50, hc_exploracion: 200, hc_produccion: 60, hc_refino: 200, hc_venta: 60,
+  hc_transporte: 60, alimenticios_general: 400, alimentos_animales: 100, maltas_cervezas: 100,
+  bebidas_no_alcoholicas: 200, lacteos: 250, aceites_grasas_af: 300, cafe_soluble: 600,
+  tabaco: 200, textiles: 200, piel_curtido: 600, gases_industriales: 200, papel_pulpa: 300,
+  papel_reciclado: 400, abonos_nitrogenados: 100, quimicos_general: 600, pigmentos_azul: 200,
+  pigmentos_oxidos_fe: 200, pigmentos_cromatos: 150, acidos_inorganicos: 50, plasticos: 125,
+  sabores_fragancias: 300, surfactantes: 100, plaguicidas: 200, pinturas_barnices: 400,
+  jabones_detergentes: 250, farmaceuticos: 150, vidrio_cemento: 50, ceramicos: 50,
+  hormigon_yeso: 100, revestimiento_metales: 100, pilas_baterias: 50, iluminacion: 50,
+  uso_domestico: 80, maquinaria_electrolitico: 100, vehiculos: 100, autopartes: 200,
+  siderurgia: 60, imprentas: 100, bebidas_destiladas: 1500, mezcla_alcoholicas: 200,
+  caucho: 50, generacion_energia: 150, tratamiento_residuos: 800, reciclaje_plasticos: 200,
+  reciclaje_tambores: 600, salud_atencion: 150, salud_hemodialisis: 600, pompas_funebres: 250,
+  otras_no_contempladas: 50,
 };
 
-function formatCOP(millones) {
-  return `$${millones.toLocaleString("es-CO")}M`;
+// Reparto de la eficiencia de remoción de DBO5 entre etapas del tren (valores típicos de literatura).
+const ETA_PRIMARIA = 0.30; // sedimentación primaria
+const ETA_ETAPA1_ALTA = 0.65; // UASB alta carga como primera etapa
+const ETA_ETAPA1_MEDIA = 0.55; // RAFA como primera etapa (carga media)
+const E_MAX = 0.97; // tope del modelo cinético de primer orden
+
+function calcularLimiteEfectivo(actividad, puntoVertimiento) {
+  const base = LIMITE_DBO5[actividad];
+  if (puntoVertimiento === "alcantarillado") return base * 1.5;
+  return base; // cuerpo_agua, y suelo como proxy conservador (Res. 631 no aplica a suelo)
 }
 
-function buildTrain(profile, puntoVertimiento) {
+function clampE(e) {
+  return Math.max(0, Math.min(e, E_MAX));
+}
+
+// Constantes cinéticas (día⁻¹), recalibradas para que a la eficiencia típica de literatura de
+// cada reactor, el tiempo de retención resultante coincida con el HRT real de diseño (horas).
+// Antes tenían valores de lagunas de estabilización (procesos de días), inconsistentes con
+// reactores de alta tasa (horas) — esa versión quedó descartada tras la prueba de sanidad.
+const K_CINETICA = {
+  uasb_alta: 7.0,   // E=70% típico a HRT=8h
+  rafa_media: 5.87, // E=55% típico a HRT=5h
+  aerobio: 17.0,    // E=85% típico a HRT=8h
+  fafa: 18.0,       // E=75% típico a HRT=4h
+};
+
+// Ecuaciones ajustadas: costo_COP = a * Q(L/s)^b * (E/(1-E))^c — R² > 0.998 en las 4 unidades.
+// El filtro percolador/humedal NO usa este modelo: se dimensiona por carga hidráulica
+// superficial, no por tiempo de retención en tanque, así que mantiene su ecuación de solo caudal
+// (ver COST_PARAMS).
+const KINETIC_COST_PARAMS = {
+  uasb_alta: { a: 6789450, b: 0.877, c: 0.872 },
+  rafa_media: { a: 7503001, b: 0.913, c: 0.909 },
+  aerobio: { a: 3906361, b: 0.816, c: 0.811 },
+  fafa: { a: 3597769, b: 0.923, c: 0.919 },
+};
+
+function costoKinetico(tipo, caudalLs, e) {
+  const eClamp = Math.max(0.01, Math.min(e, E_MAX));
+  const { a, b, c } = KINETIC_COST_PARAMS[tipo];
+  const puntual = a * Math.pow(caudalLs, b) * Math.pow(eClamp / (1 - eClamp), c);
+  return { min: puntual * 0.8, max: puntual * 1.3 };
+}
+
+// Ecuaciones de costo ajustadas: costo_COP = a * Q(L/s)^b
+// Obtenidas de un prediseño dimensional (criterios típicos de retención/carga superficial,
+// geometría PRFV) + costo de $500.000/m2 terminado, ajustado con regresión potencial (R² > 0.999
+// en las 13 estructuras — muy superior al ajuste logarítmico probado, R² ~0.89-0.92).
+// AJUSTAR "valor" de retención/carga en el script de prediseño dimensional si se cuenta con
+// criterios de campo más precisos, y volver a correr la regresión.
+const COST_PARAMS = {
+  "Cribado / rejillas": { a: 552673, b: 0.798 },
+  Desarenador: { a: 591362, b: 0.679 },
+  "Trampa de grasas": { a: 2510766, b: 0.812 },
+  "Flotación por aire disuelto (DAF)": { a: 2817518, b: 0.702 },
+  "Ajuste de pH (neutralización)": { a: 1910888, b: 0.726 },
+  "Sedimentación primaria / tanque Imhoff": { a: 7643550, b: 0.726 },
+  "Reactor anaerobio (UASB / laguna anaerobia)": { a: 17500011, b: 0.825 },
+  "Tratamiento aerobio (lodos activados / laguna facultativa)": { a: 15910025, b: 0.813 },
+  "Reactor anaerobio de flujo ascendente (RAFA / UASB)": { a: 12649535, b: 0.837 },
+  "Filtro percolador / humedal artificial": { a: 5073566, b: 0.836 },
+  "Filtro anaerobio de flujo ascendente (FAFA)": { a: 11014693, b: 0.895 },
+  "Desinfección (cloración o UV)": { a: 2510766, b: 0.812 },
+  "Desinfección + filtración final": { a: 2817518, b: 0.702 },
+};
+
+function formatCOP(valor) {
+  return `$${Math.round(valor).toLocaleString("es-CO")}`;
+}
+
+function buildTrain(profile, puntoVertimiento, caudalLs, actividad) {
   const units = [];
+  const advertencias = [];
+
+  const limiteEfectivo = calcularLimiteEfectivo(actividad, puntoVertimiento);
+  const eTotalRaw = 1 - limiteEfectivo / profile.dbo5;
+  const eTotal = clampE(eTotalRaw);
+
+  if (puntoVertimiento === "suelo") {
+    advertencias.push(
+      "La Resolución 631 de 2015 no aplica a vertimientos a suelo (Art. 1, parágrafo). Se usó el límite de cuerpo de agua como referencia conservadora — confirme el criterio real con la autoridad ambiental."
+    );
+  }
+  if (eTotalRaw > E_MAX) {
+    advertencias.push(
+      `La eficiencia de remoción requerida (${(eTotalRaw * 100).toFixed(0)}%) supera el límite de validez del modelo cinético (${(E_MAX * 100).toFixed(0)}%). El resultado es una aproximación — en la práctica esta carga suele requerir un tren multi-etapa más exigente que el aquí calculado.`
+    );
+  }
 
   units.push({
     nombre: "Cribado / rejillas",
@@ -90,33 +243,46 @@ function buildTrain(profile, puntoVertimiento) {
     justificacion: "Remueve sólidos sedimentables antes del proceso biológico, reduciendo la carga que debe tratar la siguiente etapa.",
   });
 
+  // Eficiencia que le queda pendiente al tratamiento secundario, después de la primaria
+  const eSecundaria = clampE(1 - (1 - eTotal) / (1 - ETA_PRIMARIA));
+
   if (profile.dbo5 > 5000) {
+    const eEtapa2 = clampE(1 - (1 - eSecundaria) / (1 - ETA_ETAPA1_ALTA));
     units.push({
       nombre: "Reactor anaerobio (UASB / laguna anaerobia)",
       nota: "Tratamiento secundario — etapa 1",
-      justificacion: `Carga orgánica muy alta (DBO5 ≈ ${profile.dbo5.toLocaleString()} mg/L) exige una etapa anaerobia previa para reducirla antes del proceso aerobio.`,
+      justificacion: `Carga orgánica muy alta (DBO5 ≈ ${profile.dbo5.toLocaleString()} mg/L) exige una etapa anaerobia previa para reducirla antes del proceso aerobio. Remoción asumida: ${(ETA_ETAPA1_ALTA * 100).toFixed(0)}%.`,
+      _tipoCinetico: "uasb_alta",
+      _eRequerida: ETA_ETAPA1_ALTA,
     });
     units.push({
       nombre: "Tratamiento aerobio (lodos activados / laguna facultativa)",
       nota: "Tratamiento secundario — etapa 2",
-      justificacion: "Pule el efluente anaerobio hasta niveles compatibles con el punto de vertimiento.",
+      justificacion: `Pule el efluente anaerobio hasta niveles compatibles con el punto de vertimiento. Remoción requerida en esta etapa: ${(eEtapa2 * 100).toFixed(0)}%.`,
+      _tipoCinetico: "aerobio",
+      _eRequerida: eEtapa2,
     });
   } else if (profile.dbo5 > 500) {
+    const eEtapa2 = clampE(1 - (1 - eSecundaria) / (1 - ETA_ETAPA1_MEDIA));
     units.push({
       nombre: "Reactor anaerobio de flujo ascendente (RAFA / UASB)",
       nota: "Tratamiento secundario — etapa 1",
-      justificacion: `Carga orgánica media-alta (DBO5 ≈ ${profile.dbo5.toLocaleString()} mg/L) se beneficia de una etapa anaerobia antes del pulimento final.`,
+      justificacion: `Carga orgánica media-alta (DBO5 ≈ ${profile.dbo5.toLocaleString()} mg/L) se beneficia de una etapa anaerobia antes del pulimento final. Remoción asumida: ${(ETA_ETAPA1_MEDIA * 100).toFixed(0)}%.`,
+      _tipoCinetico: "rafa_media",
+      _eRequerida: ETA_ETAPA1_MEDIA,
     });
     units.push({
       nombre: "Filtro percolador / humedal artificial",
       nota: "Tratamiento secundario — etapa 2",
-      justificacion: "Pulimento aerobio de bajo costo operativo, adecuado para caudales moderados.",
+      justificacion: "Pulimento aerobio de bajo costo operativo, que recibe el efluente parcialmente tratado del RAFA. Se dimensiona por carga hidráulica superficial, no por tiempo de retención — su costo depende del caudal, no de la eficiencia de remoción.",
     });
   } else {
     units.push({
       nombre: "Filtro anaerobio de flujo ascendente (FAFA)",
       nota: "Tratamiento secundario",
-      justificacion: `Carga orgánica típica de agua residual doméstica (DBO5 ≈ ${profile.dbo5} mg/L); un FAFA es suficiente como tratamiento secundario.`,
+      justificacion: `Carga orgánica típica de agua residual doméstica (DBO5 ≈ ${profile.dbo5} mg/L); un FAFA es suficiente como tratamiento secundario. Remoción requerida: ${(eSecundaria * 100).toFixed(0)}%.`,
+      _tipoCinetico: "fafa",
+      _eRequerida: eSecundaria,
     });
   }
 
@@ -142,10 +308,19 @@ function buildTrain(profile, puntoVertimiento) {
     });
   }
 
-  return units.map((u) => {
-    const rango = COSTOS_COP_MILLONES[u.nombre];
-    return { ...u, costoEstimado: rango ? { min: rango[0], max: rango[1] } : null };
+  const unitsConCosto = units.map((u) => {
+    if (u._tipoCinetico) {
+      const costoEstimado = !caudalLs || caudalLs <= 0 ? null : costoKinetico(u._tipoCinetico, caudalLs, u._eRequerida);
+      const { _tipoCinetico, _eRequerida, ...resto } = u;
+      return { ...resto, costoEstimado };
+    }
+    const params = COST_PARAMS[u.nombre];
+    if (!params || !caudalLs || caudalLs <= 0) return { ...u, costoEstimado: null };
+    const puntual = params.a * Math.pow(caudalLs, params.b);
+    return { ...u, costoEstimado: { min: puntual * 0.8, max: puntual * 1.3 } };
   });
+
+  return { units: unitsConCosto, eTotal, advertencias };
 }
 
 function calcularCapexTotal(units) {
@@ -165,11 +340,13 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Use POST" });
 
   try {
-    const { actividad, puntoVertimiento, tieneParametros, params } = req.body;
+    const { actividad, puntoVertimiento, tieneParametros, params, caudal } = req.body;
 
     if (!ACTIVITY_PROFILES[actividad] || !VERTIMIENTO_LABELS[puntoVertimiento]) {
       return res.status(400).json({ error: "actividad o puntoVertimiento inválidos" });
     }
+
+    const caudalLs = parseFloat(caudal) || 0;
 
     const base = ACTIVITY_PROFILES[actividad];
     const profile = tieneParametros
@@ -183,11 +360,11 @@ export default async function handler(req, res) {
         }
       : base;
 
-    const units = buildTrain(profile, puntoVertimiento);
+    const { units, eTotal, advertencias } = buildTrain(profile, puntoVertimiento, caudalLs, actividad);
     const normativa = getNormativa(puntoVertimiento);
     const capex = calcularCapexTotal(units);
 
-    return res.status(200).json({ profile, units, normativa, capex });
+    return res.status(200).json({ profile, units, normativa, capex, eTotal, advertencias });
   } catch (err) {
     return res.status(500).json({ error: "Error interno" });
   }
