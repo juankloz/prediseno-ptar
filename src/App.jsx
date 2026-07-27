@@ -12,7 +12,7 @@ const PAYMENT_LINK_COMPLETO = "https://checkout.wompi.co/l/SU_LINK_INFORME_COMPL
 const API_URL = "/api/prediseno";
 
 // Reemplace por la URL de su formulario en formspree.io (gratis, sin código) — ver README.md
-const LEAD_FORM_URL = "https://formspree.io/f/SU_ID_DE_FORMULARIO";
+const LEAD_FORM_URL = "https://formspree.io/f/xjgnpzlo";
 
 // Coloque su logo en la carpeta public/ del proyecto (ver README.md) — esta ruta ya lo recoge.
 const LOGO_URL = "/logo.png";
@@ -23,8 +23,8 @@ const CONTACTO = {
   marca: "JuanKloz",
   tagline: "Ingeniería, agua y consultoría ambiental",
   instagram: "@juankloz75",
-  web: "",
-  telefono: "",
+  web: "https://juankloz.github.io/",
+  telefono: "3173002242",
 };
 
 const BIBLIOGRAFIA = [
