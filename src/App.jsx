@@ -22,7 +22,7 @@ const LOGO_URL = "/logo.png";
 const CONTACTO = {
   marca: "JuanKloz",
   tagline: "Ingeniería, agua y consultoría ambiental",
-  instagram: "@juankloz75",
+  instagram: "https://www.instagram.com/juankloz75",
   web: "https://juankloz.github.io/",
   telefono: "3173002242",
 };
