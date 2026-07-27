@@ -57,26 +57,24 @@ aparece en el código fuente ni en la URL que ve el usuario:
 El botón "Agendar revisión" y el código QR seguirán funcionando igual — ahora apuntan a una
 función propia (`/api/chat`) que arma el enlace de WhatsApp en el servidor.
 
-## Paso 5 — Configurar el reporte de pago (Nivel 2)
+## Paso 5 — Configurar los dos informes de pago
 
-1. Cree una cuenta gratis en Wompi (wompi.co) o Bold (bold.co) — ambos permiten generar un
-   "link de pago" sin escribir código
-2. Cree un link de pago fijo (ej. $50.000 COP), y configure la "URL de redirección tras el
-   pago" así:
-   ```
-   https://SU-SITIO.vercel.app/?pagado=1
-   ```
-3. Pegue la URL del link de pago (la que el cliente usa para pagar) en `PAYMENT_LINK`, dentro
-   de `src/App.jsx`
+Ahora hay dos niveles, cada uno con su propio link de pago:
+
+1. Cree una cuenta gratis en Wompi (wompi.co) o Bold (bold.co)
+2. Cree **dos** links de pago:
+   - Informe 1: $10.000 COP, redirección a `https://SU-SITIO.vercel.app/?pagado=basico`
+   - Informe 2: $250.000 COP, redirección a `https://SU-SITIO.vercel.app/?pagado=completo`
+3. Pegue cada URL en `PAYMENT_LINK_BASICO` y `PAYMENT_LINK_COMPLETO`, dentro de `src/App.jsx`
 
 **Importante — cómo funciona la protección, y su límite real:**
-Cuando alguien paga, Wompi/Bold lo redirige de vuelta a su sitio con `?pagado=1` en la URL, y
-ahí se desbloquea el reporte completo. Es simple y funciona bien para validar el producto,
-pero técnicamente alguien que conozca ese parámetro podría escribirlo a mano y ver el reporte
-sin pagar — no hay una verificación real de que el pago ocurrió. Para el volumen inicial este
-riesgo es bajo y aceptable. Si más adelante el volumen de ventas lo justifica, el siguiente
-paso es verificar el pago del lado del servidor usando el webhook de eventos de Wompi — es más
-trabajo, y vale la pena hacerlo cuando ya haya tráfico real que proteger.
+Cuando alguien paga, Wompi/Bold lo redirige de vuelta a su sitio con `?pagado=basico` o
+`?pagado=completo` en la URL, y ahí se desbloquea el nivel correspondiente. Es simple y
+funciona bien para validar el producto, pero técnicamente alguien que conozca el parámetro
+podría escribirlo a mano y ver cualquiera de los dos informes sin pagar — no hay verificación
+real de que el pago ocurrió. Para el volumen inicial este riesgo es bajo y aceptable. Si más
+adelante el volumen de ventas lo justifica, el siguiente paso es verificar el pago del lado
+del servidor usando el webhook de eventos de Wompi.
 
 
 
