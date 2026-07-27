@@ -3,15 +3,16 @@ import React, { useState, useMemo } from "react";
 // El número de WhatsApp ya no vive aquí — vive en una variable de entorno en Vercel
 // y lo resuelve la función api/chat.js, para que no quede visible en el código ni en la URL.
 
-// Reemplace por su link de pago de Wompi o Bold (se genera sin código desde su panel — ver README.md)
-const PAYMENT_LINK = "https://checkout.wompi.co/l/SU_LINK_DE_PAGO";
+// Reemplace por sus links de pago de Wompi o Bold (se generan sin código desde su panel — ver README.md)
+const PAYMENT_LINK_BASICO = "https://checkout.wompi.co/l/SU_LINK_INFORME_BASICO";
+const PAYMENT_LINK_COMPLETO = "https://checkout.wompi.co/l/SU_LINK_INFORME_COMPLETO";
 
 // Como el frontend y la función /api se despliegan juntos en el mismo proyecto de Vercel,
 // esta ruta relativa funciona sin configurar ninguna URL.
 const API_URL = "/api/prediseno";
 
 // Reemplace por la URL de su formulario en formspree.io (gratis, sin código) — ver README.md
-const LEAD_FORM_URL = "https://formspree.io/f/xjgnpzlo";
+const LEAD_FORM_URL = "https://formspree.io/f/SU_ID_DE_FORMULARIO";
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -194,6 +195,19 @@ const inputStyle = {
   outline: "none",
 };
 
+// Ejemplo fijo del Informe 2, para mostrar el alcance antes de comprar (caso ficticio, no calculado en vivo).
+const EJEMPLO_INFORME2 = {
+  actividad: "Alimentos — elaboración de productos lácteos",
+  caudal: 20,
+  vertimiento: "Cuerpo de agua superficial",
+  eTotal: 0.9,
+  filas: [
+    { nombre: "Sedimentación primaria / tanque Imhoff", criterio: "Carga superficial = 1.5 m³/m²·h", volumen: 144, area: 136.2, dbo5Salida: 1750, costoMin: 53818659, costoMax: 87455321 },
+    { nombre: "Reactor anaerobio de flujo ascendente (RAFA / UASB)", criterio: "Tiempo de retención = 5.0 h", volumen: 359.8, area: 314.4, dbo5Salida: 787, costoMin: 111015824, costoMax: 180400714 },
+    { nombre: "Filtro percolador / humedal artificial", criterio: "Carga superficial = 1 m³/m²·h", volumen: 108, area: 126, dbo5Salida: 250, costoMin: 49666594, costoMax: 80708215 },
+  ],
+};
+
 export default function App() {
   const [caudal, setCaudal] = useState("50");
   const [actividad, setActividad] = useState("domestico");
@@ -211,10 +225,13 @@ export default function App() {
   const [remoteLoading, setRemoteLoading] = useState(false);
   const [remoteError, setRemoteError] = useState("");
 
-  const paid = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    return new URLSearchParams(window.location.search).get("pagado") === "1";
+  const nivelPagado = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const v = new URLSearchParams(window.location.search).get("pagado");
+    return v === "basico" || v === "completo" ? v : null;
   }, []);
+
+  const [verEjemplo, setVerEjemplo] = useState(false);
 
   const profilePreview = useMemo(() => {
     if (!tieneParametros) return ACTIVITY_PROFILES[actividad];
@@ -558,32 +575,95 @@ export default function App() {
                 Marco normativo de referencia: {remoteResult?.normativa}
               </div>
 
-              {!paid ? (
-                <div className="mt-6 p-6 rounded-sm max-w-lg" style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.brass}` }}>
-                  <div className="text-xs uppercase tracking-widest mb-2" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
-                    Reporte completo — $50.000 COP
+              {!nivelPagado ? (
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-6 rounded-sm" style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.grid}` }}>
+                    <div className="text-xs uppercase tracking-widest mb-2" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
+                      Informe 1 — $10.000 COP
+                    </div>
+                    <p className="text-sm mb-4" style={{ color: TOKENS.inkDim }}>
+                      Estimado de inversión (CAPEX) por unidad y total del sistema, en un PDF con
+                      su marca.
+                    </p>
+                    <a
+                      href={PAYMENT_LINK_BASICO}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block px-5 py-2 text-xs uppercase tracking-widest"
+                      style={{ background: TOKENS.brass, color: TOKENS.blueprintDeep, fontFamily: "'IBM Plex Mono', monospace", textDecoration: "none" }}
+                    >
+                      Comprar Informe 1 →
+                    </a>
                   </div>
-                  <p className="text-sm mb-3" style={{ color: TOKENS.inkDim }}>
-                    Incluye estimado de inversión (CAPEX) por unidad, el rango total del sistema,
-                    y un PDF con su marca listo para compartir o archivar.
-                  </p>
-                  <p className="text-xs mb-4" style={{ color: TOKENS.inkDim, fontFamily: "'IBM Plex Mono', monospace" }}>
-                    Estimado de inversión: 🔒 disponible tras la compra
-                  </p>
-                  <a
-                    href={PAYMENT_LINK}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block px-6 py-3 text-xs uppercase tracking-widest"
-                    style={{ background: TOKENS.brass, color: TOKENS.blueprintDeep, fontFamily: "'IBM Plex Mono', monospace", textDecoration: "none" }}
-                  >
-                    Comprar reporte completo →
-                  </a>
+
+                  <div className="p-6 rounded-sm" style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.brass}` }}>
+                    <div className="text-xs uppercase tracking-widest mb-2" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
+                      Informe 2 — $250.000 COP
+                    </div>
+                    <p className="text-sm mb-3" style={{ color: TOKENS.inkDim }}>
+                      Todo lo del Informe 1, más memorias de cálculo (volumen, criterio de diseño,
+                      área) y la calidad del agua a la salida de cada unidad.
+                    </p>
+                    <button
+                      onClick={() => setVerEjemplo(!verEjemplo)}
+                      className="block mb-3 text-xs underline"
+                      style={{ color: TOKENS.brass, background: "none", border: "none", cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace" }}
+                    >
+                      {verEjemplo ? "Ocultar ejemplo" : "Ver ejemplo del Informe 2 →"}
+                    </button>
+                    <a
+                      href={PAYMENT_LINK_COMPLETO}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block px-5 py-2 text-xs uppercase tracking-widest"
+                      style={{ background: TOKENS.brass, color: TOKENS.blueprintDeep, fontFamily: "'IBM Plex Mono', monospace", textDecoration: "none" }}
+                    >
+                      Comprar Informe 2 →
+                    </a>
+                  </div>
+
+                  {verEjemplo && (
+                    <div className="md:col-span-2 p-5 rounded-sm" style={{ border: `1px dashed ${TOKENS.inkDim}` }}>
+                      <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
+                        Ejemplo ilustrativo — no es su resultado
+                      </div>
+                      <p className="text-xs mb-3" style={{ color: TOKENS.inkDim }}>
+                        {EJEMPLO_INFORME2.actividad} · Q = {EJEMPLO_INFORME2.caudal} L/s ·{" "}
+                        {EJEMPLO_INFORME2.vertimiento} · Eficiencia requerida: {(EJEMPLO_INFORME2.eTotal * 100).toFixed(0)}%
+                      </p>
+                      <table className="w-full text-xs" style={{ color: TOKENS.ink, borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
+                            <th className="text-left pb-2">Unidad</th>
+                            <th className="text-left pb-2">Criterio de diseño</th>
+                            <th className="text-right pb-2">Volumen (m³)</th>
+                            <th className="text-right pb-2">Área (m²)</th>
+                            <th className="text-right pb-2">DBO5 salida</th>
+                            <th className="text-right pb-2">Costo</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {EJEMPLO_INFORME2.filas.map((f, i) => (
+                            <tr key={i} style={{ borderTop: `1px solid ${TOKENS.grid}` }}>
+                              <td className="py-2 pr-2">{f.nombre}</td>
+                              <td className="py-2 pr-2" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{f.criterio}</td>
+                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{f.volumen}</td>
+                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{f.area}</td>
+                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{f.dbo5Salida} mg/L</td>
+                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                                ${f.costoMin.toLocaleString("es-CO")}–${f.costoMax.toLocaleString("es-CO")}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div id="reporte-imprimible" className="mt-6 p-6 rounded-sm" style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.brass}` }}>
                   <div className="print-header" style={{ display: "none" }}>
-                    <h2>Prediseño de PTAR — Reporte completo</h2>
+                    <h2>Prediseño de PTAR — {nivelPagado === "completo" ? "Informe completo" : "Informe básico"}</h2>
                     <p>JuanKloz · Ingeniería, agua y consultoría ambiental</p>
                     <p>
                       Actividad: {ACTIVITY_PROFILES[actividad].label} · Caudal: {caudal} L/s · Vertimiento:{" "}
@@ -592,21 +672,46 @@ export default function App() {
                   </div>
 
                   <div className="text-xs uppercase tracking-widest mb-3" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
-                    Estimado de inversión (CAPEX) — orden de magnitud
+                    {nivelPagado === "completo" ? "Memorias de cálculo y estimado de inversión" : "Estimado de inversión (CAPEX) — orden de magnitud"}
                   </div>
-                  <table className="w-full text-sm mb-3" style={{ color: TOKENS.ink, borderCollapse: "collapse" }}>
+                  <table className="w-full text-xs mb-3" style={{ color: TOKENS.ink, borderCollapse: "collapse" }}>
+                    <thead>
+                      {nivelPagado === "completo" && (
+                        <tr style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
+                          <th className="text-left pb-2">Unidad</th>
+                          <th className="text-left pb-2">Criterio</th>
+                          <th className="text-right pb-2">Vol. (m³)</th>
+                          <th className="text-right pb-2">Área (m²)</th>
+                          <th className="text-right pb-2">DBO5 salida</th>
+                          <th className="text-right pb-2">Costo</th>
+                        </tr>
+                      )}
+                    </thead>
                     <tbody>
                       {(remoteResult?.units || [])
                         .filter((u) => u.costoEstimado)
-                        .map((u, i) => (
-                          <tr key={i} style={{ borderBottom: `1px solid ${TOKENS.grid}` }}>
-                            <td className="py-2 pr-4">{u.nombre}</td>
-                            <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                              ${Math.round(u.costoEstimado.min).toLocaleString("es-CO")} – $
-                              {Math.round(u.costoEstimado.max).toLocaleString("es-CO")} COP
-                            </td>
-                          </tr>
-                        ))}
+                        .map((u, i) =>
+                          nivelPagado === "completo" ? (
+                            <tr key={i} style={{ borderTop: `1px solid ${TOKENS.grid}` }}>
+                              <td className="py-2 pr-2">{u.nombre}</td>
+                              <td className="py-2 pr-2" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{u.memoria?.criterio || "—"}</td>
+                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{u.memoria?.volumen_m3 ?? "—"}</td>
+                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{u.memoria?.area_m2 ?? "—"}</td>
+                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{u.calidadSalida?.dbo5 ?? "—"} mg/L</td>
+                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                                ${Math.round(u.costoEstimado.min).toLocaleString("es-CO")}–${Math.round(u.costoEstimado.max).toLocaleString("es-CO")}
+                              </td>
+                            </tr>
+                          ) : (
+                            <tr key={i} style={{ borderBottom: `1px solid ${TOKENS.grid}` }}>
+                              <td className="py-2 pr-4">{u.nombre}</td>
+                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                                ${Math.round(u.costoEstimado.min).toLocaleString("es-CO")} – $
+                                {Math.round(u.costoEstimado.max).toLocaleString("es-CO")} COP
+                              </td>
+                            </tr>
+                          )
+                        )}
                     </tbody>
                   </table>
                   <p className="text-sm mb-4" style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
