@@ -12,7 +12,27 @@ const PAYMENT_LINK_COMPLETO = "https://checkout.wompi.co/l/SU_LINK_INFORME_COMPL
 const API_URL = "/api/prediseno";
 
 // Reemplace por la URL de su formulario en formspree.io (gratis, sin código) — ver README.md
-const LEAD_FORM_URL = "https://formspree.io/f/xjgnpzlo";
+const LEAD_FORM_URL = "https://formspree.io/f/SU_ID_DE_FORMULARIO";
+
+// Coloque su logo en la carpeta public/ del proyecto (ver README.md) — esta ruta ya lo recoge.
+const LOGO_URL = "/logo.png";
+
+// Datos de contacto que aparecen en portada y pie de página del informe descargado.
+// Complete web/teléfono si quiere que también aparezcan (quedan vacíos si los deja "").
+const CONTACTO = {
+  marca: "JuanKloz",
+  tagline: "Ingeniería, agua y consultoría ambiental",
+  instagram: "@juankloz75",
+  web: "",
+  telefono: "",
+};
+
+const BIBLIOGRAFIA = [
+  "Ministerio de Ambiente y Desarrollo Sostenible. Resolución 631 de 2015 — Parámetros y valores límites máximos permisibles en los vertimientos puntuales a cuerpos de agua superficiales y a los sistemas de alcantarillado público.",
+  "Metcalf & Eddy, Inc. Wastewater Engineering: Treatment and Reuse. 4ª edición. McGraw-Hill.",
+  "Von Sperling, M. Wastewater Characteristics, Treatment and Disposal. IWA Publishing.",
+  "Reglamento Técnico del Sector de Agua Potable y Saneamiento Básico (RAS) — Título E, Tratamiento de Aguas Residuales.",
+];
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -23,7 +43,25 @@ const FONTS = `
   #reporte-imprimible { position: absolute; top: 0; left: 0; width: 100%; background: #fff !important; }
   #reporte-imprimible * { color: #000 !important; border-color: #999 !important; }
   #reporte-imprimible .print-header { display: block !important; margin-bottom: 1rem; }
+  #reporte-imprimible .print-section { display: block !important; page-break-inside: avoid; margin-bottom: 1.25rem; }
+  #reporte-imprimible .print-pagebreak { page-break-before: always; }
   #reporte-imprimible button { display: none !important; }
+  #reporte-imprimible .marca-de-agua {
+    display: flex !important;
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    align-items: center; justify-content: center;
+    z-index: 0; opacity: 0.06; pointer-events: none;
+  }
+  #reporte-imprimible .marca-de-agua span {
+    font-size: 5rem; font-weight: 700; transform: rotate(-30deg);
+    white-space: nowrap; font-family: 'Space Grotesk', sans-serif;
+  }
+  #reporte-imprimible .pie-de-pagina {
+    display: block !important;
+    position: fixed; bottom: 0.4cm; left: 0; width: 100%;
+    text-align: center; font-size: 8px; color: #666 !important;
+  }
+  #reporte-imprimible .contenido-informe { position: relative; z-index: 1; }
 }
 `;
 
@@ -662,65 +700,192 @@ export default function App() {
                 </div>
               ) : (
                 <div id="reporte-imprimible" className="mt-6 p-6 rounded-sm" style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.brass}` }}>
-                  <div className="print-header" style={{ display: "none" }}>
-                    <h2>Prediseño de PTAR — {nivelPagado === "completo" ? "Informe completo" : "Informe básico"}</h2>
-                    <p>JuanKloz · Ingeniería, agua y consultoría ambiental</p>
-                    <p>
-                      Actividad: {ACTIVITY_PROFILES[actividad].label} · Caudal: {caudal} L/s · Vertimiento:{" "}
-                      {VERTIMIENTO_LABELS[puntoVertimiento]}
-                    </p>
+                  <div className="marca-de-agua" style={{ display: "none" }}>
+                    <span>{CONTACTO.marca.toUpperCase()} — PRELIMINAR</span>
                   </div>
 
-                  <div className="text-xs uppercase tracking-widest mb-3" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
-                    {nivelPagado === "completo" ? "Memorias de cálculo y estimado de inversión" : "Estimado de inversión (CAPEX) — orden de magnitud"}
+                  <div className="contenido-informe">
+                    <div className="print-header" style={{ display: "none" }}>
+                      <img src={LOGO_URL} alt={CONTACTO.marca} style={{ height: 60, marginBottom: 12 }} />
+                      <h1 style={{ fontSize: "1.4rem", marginBottom: 4 }}>
+                        Prediseño de sistema de tratamiento de aguas residuales
+                      </h1>
+                      <p style={{ fontSize: "0.85rem" }}>
+                        {nivelPagado === "completo" ? "Informe completo" : "Informe básico"} — {CONTACTO.marca} · {CONTACTO.tagline}
+                      </p>
+                      <p style={{ fontSize: "0.8rem" }}>
+                        Actividad: {ACTIVITY_PROFILES[actividad].label} · Caudal: {caudal} L/s · Vertimiento:{" "}
+                        {VERTIMIENTO_LABELS[puntoVertimiento]} · Fecha: {new Date().toLocaleDateString("es-CO")}
+                      </p>
+                    </div>
+
+                    {nivelPagado === "completo" && (
+                      <>
+                        <div className="print-section">
+                          <h3 className="text-sm uppercase tracking-wide mb-1" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
+                            1. Introducción
+                          </h3>
+                          <p className="text-sm" style={{ color: TOKENS.inkDim }}>
+                            El presente documento constituye un anteproyecto conceptual de sistema de
+                            tratamiento de aguas residuales para una actividad de tipo{" "}
+                            {ACTIVITY_PROFILES[actividad].label.toLowerCase()}, con un caudal de diseño
+                            de {caudal} L/s y vertimiento previsto hacia {VERTIMIENTO_LABELS[puntoVertimiento].toLowerCase()}.
+                            Su propósito es orientar la toma de decisiones tempranas sobre la
+                            configuración del tren de tratamiento y el orden de magnitud de la
+                            inversión requerida, antes de contratar el diseño detallado.
+                          </p>
+                        </div>
+
+                        <div className="print-section">
+                          <h3 className="text-sm uppercase tracking-wide mb-1" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
+                            2. Objetivos
+                          </h3>
+                          <p className="text-sm mb-1" style={{ color: TOKENS.inkDim }}>
+                            <b>General:</b> proponer un prediseño conceptual del sistema de tratamiento
+                            de aguas residuales aplicable al caso descrito.
+                          </p>
+                          <p className="text-sm" style={{ color: TOKENS.inkDim }}>
+                            <b>Específicos:</b> (i) caracterizar el agua residual de entrada; (ii)
+                            identificar la normativa de vertimiento aplicable; (iii) definir el tren de
+                            unidades de tratamiento requerido; (iv) estimar el orden de magnitud de la
+                            inversión (CAPEX).
+                          </p>
+                        </div>
+
+                        <div className="print-section">
+                          <h3 className="text-sm uppercase tracking-wide mb-1" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
+                            3. Alcance y limitaciones
+                          </h3>
+                          <p className="text-sm" style={{ color: TOKENS.inkDim }}>
+                            Este es un anteproyecto conceptual — no constituye diseño detallado, no
+                            reemplaza las memorias de cálculo firmadas por un profesional competente, y
+                            no debe usarse para construcción. Los criterios de diseño empleados son
+                            simplificaciones razonables para esta etapa; el dimensionamiento definitivo
+                            requiere caracterización de campo y validación profesional adicional.
+                          </p>
+                        </div>
+
+                        <div className="print-section">
+                          <h3 className="text-sm uppercase tracking-wide mb-1" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
+                            4. Caracterización del agua residual
+                          </h3>
+                          <p className="text-sm mb-1" style={{ color: TOKENS.inkDim, fontFamily: "'IBM Plex Mono', monospace" }}>
+                            DBO5 {profilePreview.dbo5.toLocaleString()} mg/L · DQO {profilePreview.dqo.toLocaleString()} mg/L · SST{" "}
+                            {profilePreview.sst.toLocaleString()} mg/L · GyA {profilePreview.gya.toLocaleString()} mg/L · pH {profilePreview.ph}
+                          </p>
+                          <p className="text-xs" style={{ color: TOKENS.inkDim }}>
+                            Fuente: {tieneParametros ? "parámetros de laboratorio reportados por el cliente" : "valor típico de literatura para esta actividad"}.
+                          </p>
+                        </div>
+                      </>
+                    )}
+
+                    <div className="print-section">
+                      <h3 className="text-sm uppercase tracking-wide mb-1" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
+                        {nivelPagado === "completo" ? "5. Marco normativo aplicable" : "Marco normativo aplicable"}
+                      </h3>
+                      <p className="text-xs" style={{ color: TOKENS.inkDim, fontFamily: "'IBM Plex Mono', monospace" }}>
+                        {remoteResult?.normativa}
+                      </p>
+                    </div>
+
+                    {(remoteResult?.advertencias || []).length > 0 && (
+                      <div className="print-section">
+                        {remoteResult.advertencias.map((adv, i) => (
+                          <p key={i} className="text-xs mb-1" style={{ color: TOKENS.rust }}>⚠ {adv}</p>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="print-section print-pagebreak">
+                      <h3 className="text-sm uppercase tracking-wide mb-3" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
+                        {nivelPagado === "completo" ? "6. Tren de tratamiento — memorias de cálculo y estimado de inversión" : "Estimado de inversión (CAPEX) — orden de magnitud"}
+                      </h3>
+                      <table className="w-full text-xs mb-3" style={{ color: TOKENS.ink, borderCollapse: "collapse" }}>
+                        <thead>
+                          {nivelPagado === "completo" && (
+                            <tr style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
+                              <th className="text-left pb-2">Unidad</th>
+                              <th className="text-left pb-2">Criterio</th>
+                              <th className="text-right pb-2">Vol. (m³)</th>
+                              <th className="text-right pb-2">Área (m²)</th>
+                              <th className="text-right pb-2">DBO5 salida</th>
+                              <th className="text-right pb-2">Costo</th>
+                            </tr>
+                          )}
+                        </thead>
+                        <tbody>
+                          {(remoteResult?.units || [])
+                            .filter((u) => u.costoEstimado)
+                            .map((u, i) =>
+                              nivelPagado === "completo" ? (
+                                <tr key={i} style={{ borderTop: `1px solid ${TOKENS.grid}` }}>
+                                  <td className="py-2 pr-2">{u.nombre}</td>
+                                  <td className="py-2 pr-2" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{u.memoria?.criterio || "—"}</td>
+                                  <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{u.memoria?.volumen_m3 ?? "—"}</td>
+                                  <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{u.memoria?.area_m2 ?? "—"}</td>
+                                  <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{u.calidadSalida?.dbo5 ?? "—"} mg/L</td>
+                                  <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                                    ${Math.round(u.costoEstimado.min).toLocaleString("es-CO")}–${Math.round(u.costoEstimado.max).toLocaleString("es-CO")}
+                                  </td>
+                                </tr>
+                              ) : (
+                                <tr key={i} style={{ borderBottom: `1px solid ${TOKENS.grid}` }}>
+                                  <td className="py-2 pr-4">{u.nombre}</td>
+                                  <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                                    ${Math.round(u.costoEstimado.min).toLocaleString("es-CO")} – $
+                                    {Math.round(u.costoEstimado.max).toLocaleString("es-CO")} COP
+                                  </td>
+                                </tr>
+                              )
+                            )}
+                        </tbody>
+                      </table>
+                      <p className="text-sm mb-1" style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
+                        Total estimado: {remoteResult?.capex?.texto}
+                      </p>
+                      <p className="text-xs" style={{ color: TOKENS.inkDim }}>
+                        Cifras de orden de magnitud para una escala pequeña-mediana — no reemplazan
+                        una cotización con proveedores reales.
+                      </p>
+                    </div>
+
+                    {nivelPagado === "completo" && (
+                      <>
+                        <div className="print-section">
+                          <h3 className="text-sm uppercase tracking-wide mb-1" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
+                            7. Conclusiones y recomendaciones
+                          </h3>
+                          <p className="text-sm" style={{ color: TOKENS.inkDim }}>
+                            El sistema propuesto requiere una eficiencia de remoción de DBO5 de
+                            aproximadamente {((remoteResult?.eTotal || 0) * 100).toFixed(0)}% para cumplir
+                            la norma aplicable.{" "}
+                            {(remoteResult?.eTotal || 0) >= 0.9
+                              ? "Al tratarse de una exigencia alta, se recomienda validar la caracterización de entrada con datos reales de laboratorio y considerar un tren multi-etapa robusto antes de avanzar al diseño detallado."
+                              : "Es una exigencia moderada, alcanzable con el tren propuesto; se recomienda de todas formas validar los criterios de diseño con datos de campo antes del diseño detallado."}
+                          </p>
+                        </div>
+
+                        <div className="print-section">
+                          <h3 className="text-sm uppercase tracking-wide mb-1" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
+                            8. Bibliografía
+                          </h3>
+                          <ul className="text-xs pl-4" style={{ color: TOKENS.inkDim, listStyle: "disc" }}>
+                            {BIBLIOGRAFIA.map((ref, i) => (
+                              <li key={i} className="mb-1">{ref}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  <table className="w-full text-xs mb-3" style={{ color: TOKENS.ink, borderCollapse: "collapse" }}>
-                    <thead>
-                      {nivelPagado === "completo" && (
-                        <tr style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
-                          <th className="text-left pb-2">Unidad</th>
-                          <th className="text-left pb-2">Criterio</th>
-                          <th className="text-right pb-2">Vol. (m³)</th>
-                          <th className="text-right pb-2">Área (m²)</th>
-                          <th className="text-right pb-2">DBO5 salida</th>
-                          <th className="text-right pb-2">Costo</th>
-                        </tr>
-                      )}
-                    </thead>
-                    <tbody>
-                      {(remoteResult?.units || [])
-                        .filter((u) => u.costoEstimado)
-                        .map((u, i) =>
-                          nivelPagado === "completo" ? (
-                            <tr key={i} style={{ borderTop: `1px solid ${TOKENS.grid}` }}>
-                              <td className="py-2 pr-2">{u.nombre}</td>
-                              <td className="py-2 pr-2" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{u.memoria?.criterio || "—"}</td>
-                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{u.memoria?.volumen_m3 ?? "—"}</td>
-                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{u.memoria?.area_m2 ?? "—"}</td>
-                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{u.calidadSalida?.dbo5 ?? "—"} mg/L</td>
-                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                                ${Math.round(u.costoEstimado.min).toLocaleString("es-CO")}–${Math.round(u.costoEstimado.max).toLocaleString("es-CO")}
-                              </td>
-                            </tr>
-                          ) : (
-                            <tr key={i} style={{ borderBottom: `1px solid ${TOKENS.grid}` }}>
-                              <td className="py-2 pr-4">{u.nombre}</td>
-                              <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                                ${Math.round(u.costoEstimado.min).toLocaleString("es-CO")} – $
-                                {Math.round(u.costoEstimado.max).toLocaleString("es-CO")} COP
-                              </td>
-                            </tr>
-                          )
-                        )}
-                    </tbody>
-                  </table>
-                  <p className="text-sm mb-4" style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
-                    Total estimado: {remoteResult?.capex?.texto}
-                  </p>
-                  <p className="text-xs mb-4" style={{ color: TOKENS.inkDim }}>
-                    Cifras de orden de magnitud para una escala pequeña-mediana — no reemplazan
-                    una cotización con proveedores reales.
-                  </p>
+
+                  <div className="pie-de-pagina" style={{ display: "none" }}>
+                    {CONTACTO.marca} — {CONTACTO.tagline} — Instagram {CONTACTO.instagram}
+                    {CONTACTO.web && ` — ${CONTACTO.web}`}
+                    {CONTACTO.telefono && ` — ${CONTACTO.telefono}`}
+                  </div>
+
                   <button
                     onClick={() => window.print()}
                     className="px-6 py-3 text-xs uppercase tracking-widest"
