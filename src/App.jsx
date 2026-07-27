@@ -11,7 +11,7 @@ const PAYMENT_LINK = "https://checkout.wompi.co/l/SU_LINK_DE_PAGO";
 const API_URL = "/api/prediseno";
 
 // Reemplace por la URL de su formulario en formspree.io (gratis, sin código) — ver README.md
-const LEAD_FORM_URL = "https://formspree.io/f/xjgnpzlo";
+const LEAD_FORM_URL = "https://formspree.io/f/SU_ID_DE_FORMULARIO";
 
 const FONTS = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
@@ -37,31 +37,118 @@ const TOKENS = {
 };
 
 const ACTIVITY_PROFILES = {
-  domestico: {
-    label: "Doméstico / residencial",
-    dbo5: 250,
-    dqo: 500,
-    sst: 250,
-    gya: 80,
-    ph: 7,
-  },
-  palma: {
-    label: "Agroindustrial — extracción de aceite de palma (POME)",
-    dbo5: 25000,
-    dqo: 50000,
-    sst: 18000,
-    gya: 6000,
-    ph: 4.5,
-  },
-  lacteos: {
-    label: "Industria de alimentos / lácteos",
-    dbo5: 2500,
-    dqo: 5000,
-    sst: 1200,
-    gya: 800,
-    ph: 6,
-  },
+  domestico: { label: "Doméstico / residencial", dbo5: 250, dqo: 500, sst: 250, gya: 80, ph: 7, confianza: "literatura" },
+  hortalizas_frutas: { label: "Agroindustria — hortalizas, frutas, legumbres, raíces y tubérculos", dbo5: 200, dqo: 450, sst: 300, gya: 30, ph: 7, confianza: "generico" },
+  cafe_ecologico: { label: "Agroindustria — beneficio de café (proceso ecológico)", dbo5: 10000, dqo: 20000, sst: 3000, gya: 50, ph: 4.5, confianza: "literatura" },
+  cafe_tradicional: { label: "Agroindustria — beneficio de café (proceso tradicional)", dbo5: 2500, dqo: 5000, sst: 800, gya: 30, ph: 5.5, confianza: "literatura" },
+  platano_banano: { label: "Agroindustria — poscosecha de plátano y banano", dbo5: 150, dqo: 400, sst: 200, gya: 20, ph: 7, confianza: "generico" },
+  azucar_cana: { label: "Agroindustria — producción de azúcar y derivados de caña", dbo5: 3000, dqo: 6000, sst: 1000, gya: 40, ph: 5, confianza: "literatura" },
+  palma: { label: "Agroindustria — extracción de aceites de origen vegetal (palma)", dbo5: 25000, dqo: 50000, sst: 18000, gya: 6000, ph: 4.5, confianza: "literatura" },
+  bovino_cria: { label: "Ganadería — bovino/bufalino/equino/ovino/caprino (cría)", dbo5: 1000, dqo: 2000, sst: 600, gya: 60, ph: 7, confianza: "literatura" },
+  bovino_beneficio: { label: "Ganadería — bovino/bufalino/equino/ovino/caprino (beneficio)", dbo5: 3000, dqo: 6000, sst: 1500, gya: 600, ph: 7, confianza: "literatura" },
+  porcinos_cria: { label: "Ganadería — porcinos (cría)", dbo5: 4000, dqo: 8000, sst: 2000, gya: 100, ph: 7, confianza: "literatura" },
+  porcinos_beneficio: { label: "Ganadería — porcinos (beneficio)", dbo5: 3000, dqo: 6000, sst: 1500, gya: 400, ph: 7, confianza: "literatura" },
+  bovino_porcino_dual: { label: "Ganadería — bovinos y porcinos (beneficio dual)", dbo5: 3000, dqo: 6000, sst: 1600, gya: 500, ph: 7, confianza: "literatura" },
+  aves_incubacion: { label: "Ganadería — aves de corral (incubación y cría)", dbo5: 700, dqo: 1500, sst: 500, gya: 60, ph: 7, confianza: "literatura" },
+  aves_beneficio: { label: "Ganadería — aves de corral (beneficio)", dbo5: 2000, dqo: 4000, sst: 800, gya: 300, ph: 7, confianza: "literatura" },
+  mineria_carbon: { label: "Minería — extracción de carbón de piedra y lignito", dbo5: 150, dqo: 400, sst: 300, gya: 30, ph: 7, confianza: "generico" },
+  mineria_hierro: { label: "Minería — extracción de minerales de hierro", dbo5: 150, dqo: 400, sst: 300, gya: 30, ph: 7, confianza: "generico" },
+  mineria_oro: { label: "Minería — extracción de oro y otros metales preciosos", dbo5: 150, dqo: 400, sst: 400, gya: 30, ph: 7, confianza: "generico" },
+  mineria_niquel: { label: "Minería — extracción de minerales de níquel y otros no ferrosos", dbo5: 150, dqo: 400, sst: 300, gya: 30, ph: 7, confianza: "generico" },
+  mineria_otras: { label: "Minería — extracción de otras minas y canteras", dbo5: 150, dqo: 400, sst: 300, gya: 30, ph: 7, confianza: "generico" },
+  hc_exploracion: { label: "Hidrocarburos — exploración (upstream)", dbo5: 500, dqo: 1200, sst: 200, gya: 100, ph: 7, confianza: "literatura" },
+  hc_produccion: { label: "Hidrocarburos — producción (upstream)", dbo5: 200, dqo: 600, sst: 150, gya: 80, ph: 7, confianza: "literatura" },
+  hc_refino: { label: "Hidrocarburos — refino", dbo5: 500, dqo: 1200, sst: 200, gya: 100, ph: 7, confianza: "literatura" },
+  hc_venta: { label: "Hidrocarburos — venta y distribución (downstream)", dbo5: 200, dqo: 600, sst: 150, gya: 80, ph: 7, confianza: "literatura" },
+  hc_transporte: { label: "Hidrocarburos — transporte y almacenamiento (midstream)", dbo5: 200, dqo: 600, sst: 150, gya: 80, ph: 7, confianza: "literatura" },
+  alimenticios_general: { label: "Alimentos — elaboración de productos alimenticios (general)", dbo5: 1200, dqo: 1800, sst: 600, gya: 60, ph: 7, confianza: "literatura" },
+  alimentos_animales: { label: "Alimentos — alimentos preparados para animales", dbo5: 300, dqo: 600, sst: 150, gya: 30, ph: 7, confianza: "generico" },
+  maltas_cervezas: { label: "Alimentos — elaboración de maltas y cervezas", dbo5: 2000, dqo: 4000, sst: 300, gya: 30, ph: 6, confianza: "literatura" },
+  bebidas_no_alcoholicas: { label: "Alimentos — bebidas no alcohólicas, aguas minerales y embotelladas", dbo5: 600, dqo: 1200, sst: 150, gya: 60, ph: 6.5, confianza: "generico" },
+  lacteos: { label: "Alimentos — elaboración de productos lácteos", dbo5: 2500, dqo: 5000, sst: 1200, gya: 800, ph: 6, confianza: "literatura" },
+  aceites_grasas_af: { label: "Alimentos — aceites y grasas de origen animal y vegetal", dbo5: 1600, dqo: 3000, sst: 900, gya: 200, ph: 6.5, confianza: "literatura" },
+  cafe_soluble: { label: "Alimentos — elaboración de café soluble", dbo5: 3000, dqo: 5000, sst: 1200, gya: 90, ph: 6, confianza: "generico" },
+  tabaco: { label: "Fabricación — productos derivados del tabaco", dbo5: 500, dqo: 1000, sst: 500, gya: 50, ph: 7, confianza: "generico" },
+  textiles: { label: "Fabricación — productos textiles", dbo5: 500, dqo: 1000, sst: 125, gya: 50, ph: 7, confianza: "generico" },
+  piel_curtido: { label: "Fabricación — artículos de piel, curtido y adobo de pieles", dbo5: 1500, dqo: 3000, sst: 1500, gya: 150, ph: 7, confianza: "generico" },
+  gases_industriales: { label: "Fabricación — gases industriales y medicinales", dbo5: 500, dqo: 750, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  papel_pulpa: { label: "Fabricación — papel y cartón (pulpa blanqueada, plantas integradas)", dbo5: 750, dqo: 1375, sst: 625, gya: 50, ph: 7, confianza: "generico" },
+  papel_reciclado: { label: "Fabricación — papel y cartón a partir de fibras recicladas", dbo5: 1000, dqo: 2000, sst: 1000, gya: 100, ph: 7, confianza: "generico" },
+  abonos_nitrogenados: { label: "Fabricación — abonos y compuestos inorgánicos nitrogenados", dbo5: 250, dqo: 500, sst: 250, gya: 25, ph: 7, confianza: "generico" },
+  quimicos_general: { label: "Fabricación — sustancias y productos químicos (general)", dbo5: 1500, dqo: 2000, sst: 500, gya: 62, ph: 7, confianza: "generico" },
+  pigmentos_azul: { label: "Fabricación — pigmentos inorgánicos (azul ultramar)", dbo5: 500, dqo: 1250, sst: 500, gya: 62, ph: 7, confianza: "generico" },
+  pigmentos_oxidos_fe: { label: "Fabricación — pigmentos inorgánicos (óxidos de hierro)", dbo5: 500, dqo: 1250, sst: 500, gya: 62, ph: 7, confianza: "generico" },
+  pigmentos_cromatos: { label: "Fabricación — pigmentos inorgánicos (cromatos y molibdatos de plomo)", dbo5: 375, dqo: 500, sst: 375, gya: 62, ph: 7, confianza: "generico" },
+  acidos_inorganicos: { label: "Fabricación — ácidos inorgánicos y sus sales", dbo5: 125, dqo: 450, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  plasticos: { label: "Fabricación — plásticos en formas primarias/básicas y artículos plásticos", dbo5: 312, dqo: 750, sst: 200, gya: 50, ph: 7, confianza: "generico" },
+  sabores_fragancias: { label: "Fabricación — sabores y fragancias", dbo5: 750, dqo: 1500, sst: 175, gya: 25, ph: 7, confianza: "generico" },
+  surfactantes: { label: "Fabricación — surfactantes", dbo5: 250, dqo: 1250, sst: 250, gya: 50, ph: 7, confianza: "generico" },
+  plaguicidas: { label: "Fabricación — plaguicidas y otros químicos de uso agropecuario", dbo5: 500, dqo: 1500, sst: 500, gya: 25, ph: 7, confianza: "generico" },
+  pinturas_barnices: { label: "Fabricación — pinturas, barnices y revestimientos similares", dbo5: 1000, dqo: 2000, sst: 500, gya: 50, ph: 7, confianza: "generico" },
+  jabones_detergentes: { label: "Fabricación — jabones, detergentes y productos cosméticos", dbo5: 625, dqo: 1250, sst: 200, gya: 38, ph: 9, confianza: "generico" },
+  farmaceuticos: { label: "Fabricación — productos farmacéuticos y sustancias químicas medicinales", dbo5: 375, dqo: 1000, sst: 125, gya: 38, ph: 7, confianza: "generico" },
+  vidrio_cemento: { label: "Fabricación — vidrio, productos de vidrio, cemento, cal y yeso", dbo5: 125, dqo: 325, sst: 125, gya: 50, ph: 7, confianza: "generico" },
+  ceramicos: { label: "Fabricación — productos cerámicos", dbo5: 125, dqo: 250, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  hormigon_yeso: { label: "Fabricación — artículos de hormigón, cemento y yeso", dbo5: 250, dqo: 500, sst: 250, gya: 50, ph: 7, confianza: "generico" },
+  revestimiento_metales: { label: "Fabricación — tratamiento y revestimiento de metales", dbo5: 250, dqo: 625, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  pilas_baterias: { label: "Fabricación — pilas, baterías y acumuladores eléctricos", dbo5: 125, dqo: 250, sst: 125, gya: 38, ph: 7, confianza: "generico" },
+  iluminacion: { label: "Fabricación — equipos eléctricos de iluminación", dbo5: 125, dqo: 500, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  uso_domestico: { label: "Fabricación — aparatos de uso doméstico", dbo5: 200, dqo: 400, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  maquinaria_electrolitico: { label: "Fabricación — maquinaria y equipos (recubrimientos electrolíticos)", dbo5: 250, dqo: 500, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  vehiculos: { label: "Fabricación — vehículos automotores, remolques y semirremolques", dbo5: 250, dqo: 750, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  autopartes: { label: "Fabricación — autopartes", dbo5: 500, dqo: 1000, sst: 250, gya: 75, ph: 7, confianza: "generico" },
+  siderurgia: { label: "Fabricación — siderurgia", dbo5: 150, dqo: 625, sst: 75, gya: 50, ph: 7, confianza: "generico" },
+  imprentas: { label: "Fabricación — imprentas y litografías", dbo5: 250, dqo: 500, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  bebidas_destiladas: { label: "Fabricación — bebidas alcohólicas destiladas", dbo5: 3750, dqo: 7500, sst: 750, gya: 75, ph: 6, confianza: "generico" },
+  mezcla_alcoholicas: { label: "Fabricación — mezcla-formulación de bebidas alcohólicas", dbo5: 500, dqo: 1250, sst: 500, gya: 50, ph: 7, confianza: "generico" },
+  caucho: { label: "Fabricación — producción y fabricación de derivados de caucho", dbo5: 125, dqo: 625, sst: 125, gya: 25, ph: 7, confianza: "generico" },
+  generacion_energia: { label: "Servicios — generación de energía eléctrica", dbo5: 350, dqo: 500, sst: 250, gya: 50, ph: 7, confianza: "generico" },
+  tratamiento_residuos: { label: "Servicios — tratamiento y disposición de residuos (lixiviados)", dbo5: 8000, dqo: 20000, sst: 1000, gya: 100, ph: 7.5, confianza: "literatura" },
+  reciclaje_plasticos: { label: "Servicios — reciclaje de materiales plásticos y similares", dbo5: 500, dqo: 1200, sst: 500, gya: 50, ph: 7, confianza: "generico" },
+  reciclaje_tambores: { label: "Servicios — reciclaje de tambores", dbo5: 1500, dqo: 2500, sst: 400, gya: 60, ph: 7, confianza: "generico" },
+  salud_atencion: { label: "Servicios — atención a la salud humana (con o sin internación)", dbo5: 350, dqo: 500, sst: 150, gya: 25, ph: 7, confianza: "generico" },
+  salud_hemodialisis: { label: "Servicios — atención a la salud (hemodiálisis y diálisis peritoneal)", dbo5: 1400, dqo: 1800, sst: 250, gya: 25, ph: 7, confianza: "generico" },
+  pompas_funebres: { label: "Servicios — pompas fúnebres y actividades relacionadas", dbo5: 600, dqo: 1400, sst: 250, gya: 50, ph: 7, confianza: "generico" },
+  otras_no_contempladas: { label: "Otra actividad no contemplada en los sectores anteriores", dbo5: 125, dqo: 375, sst: 125, gya: 25, ph: 7, confianza: "generico" },
 };
+
+const ACTIVIDADES_PRINCIPALES = [
+  "domestico", "cafe_tradicional", "palma", "azucar_cana", "bovino_beneficio",
+  "porcinos_beneficio", "aves_beneficio", "lacteos", "hc_produccion",
+  "mineria_oro", "piel_curtido", "tratamiento_residuos", "salud_atencion",
+];
+
+const SECTOR_DE = {
+  hortalizas_frutas: "Agroindustria", cafe_ecologico: "Agroindustria", platano_banano: "Agroindustria",
+  bovino_cria: "Ganadería", porcinos_cria: "Ganadería", bovino_porcino_dual: "Ganadería", aves_incubacion: "Ganadería",
+  mineria_carbon: "Minería", mineria_hierro: "Minería", mineria_niquel: "Minería", mineria_otras: "Minería",
+  hc_exploracion: "Hidrocarburos", hc_refino: "Hidrocarburos", hc_venta: "Hidrocarburos", hc_transporte: "Hidrocarburos",
+  alimenticios_general: "Alimentos y bebidas", alimentos_animales: "Alimentos y bebidas", maltas_cervezas: "Alimentos y bebidas",
+  bebidas_no_alcoholicas: "Alimentos y bebidas", aceites_grasas_af: "Alimentos y bebidas", cafe_soluble: "Alimentos y bebidas",
+  tabaco: "Fabricación y manufactura", textiles: "Fabricación y manufactura", gases_industriales: "Fabricación y manufactura",
+  papel_pulpa: "Fabricación y manufactura", papel_reciclado: "Fabricación y manufactura", abonos_nitrogenados: "Fabricación y manufactura",
+  quimicos_general: "Fabricación y manufactura", pigmentos_azul: "Fabricación y manufactura", pigmentos_oxidos_fe: "Fabricación y manufactura",
+  pigmentos_cromatos: "Fabricación y manufactura", acidos_inorganicos: "Fabricación y manufactura", plasticos: "Fabricación y manufactura",
+  sabores_fragancias: "Fabricación y manufactura", surfactantes: "Fabricación y manufactura", plaguicidas: "Fabricación y manufactura",
+  pinturas_barnices: "Fabricación y manufactura", jabones_detergentes: "Fabricación y manufactura", farmaceuticos: "Fabricación y manufactura",
+  vidrio_cemento: "Fabricación y manufactura", ceramicos: "Fabricación y manufactura", hormigon_yeso: "Fabricación y manufactura",
+  revestimiento_metales: "Fabricación y manufactura", pilas_baterias: "Fabricación y manufactura", iluminacion: "Fabricación y manufactura",
+  uso_domestico: "Fabricación y manufactura", maquinaria_electrolitico: "Fabricación y manufactura", vehiculos: "Fabricación y manufactura",
+  autopartes: "Fabricación y manufactura", siderurgia: "Fabricación y manufactura", imprentas: "Fabricación y manufactura",
+  bebidas_destiladas: "Fabricación y manufactura", mezcla_alcoholicas: "Fabricación y manufactura", caucho: "Fabricación y manufactura",
+  generacion_energia: "Servicios", reciclaje_plasticos: "Servicios", reciclaje_tambores: "Servicios",
+  salud_hemodialisis: "Servicios", pompas_funebres: "Servicios",
+  otras_no_contempladas: "Otras",
+};
+const ACTIVIDADES_OTRAS_AGRUPADAS = Object.keys(ACTIVITY_PROFILES)
+  .filter((key) => !ACTIVIDADES_PRINCIPALES.includes(key))
+  .reduce((acc, key) => {
+    const sector = SECTOR_DE[key] || "Otras";
+    if (!acc[sector]) acc[sector] = [];
+    acc[sector].push(key);
+    return acc;
+  }, {});
+
 
 const VERTIMIENTO_LABELS = {
   cuerpo_agua: "Cuerpo de agua superficial",
@@ -148,7 +235,7 @@ export default function App() {
       const resp = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actividad, puntoVertimiento, tieneParametros, params }),
+        body: JSON.stringify({ actividad, puntoVertimiento, tieneParametros, params, caudal }),
       });
       if (!resp.ok) throw new Error("respuesta no válida");
       const data = await resp.json();
@@ -256,17 +343,47 @@ export default function App() {
 
           <Field label="Actividad económica">
             <select
-              value={actividad}
-              onChange={(e) => setActividad(e.target.value)}
+              value={ACTIVIDADES_PRINCIPALES.includes(actividad) ? actividad : "otra"}
+              onChange={(e) => {
+                if (e.target.value === "otra") {
+                  const primerSector = Object.keys(ACTIVIDADES_OTRAS_AGRUPADAS)[0];
+                  setActividad(ACTIVIDADES_OTRAS_AGRUPADAS[primerSector][0]);
+                } else {
+                  setActividad(e.target.value);
+                }
+              }}
               style={{ ...inputStyle, cursor: "pointer" }}
             >
-              {Object.entries(ACTIVITY_PROFILES).map(([key, v]) => (
+              {ACTIVIDADES_PRINCIPALES.map((key) => (
                 <option key={key} value={key} style={{ color: "#000" }}>
-                  {v.label}
+                  {ACTIVITY_PROFILES[key].label}
                 </option>
               ))}
+              <option value="otra" style={{ color: "#000" }}>
+                Otra actividad (ver todas) →
+              </option>
             </select>
           </Field>
+
+          {!ACTIVIDADES_PRINCIPALES.includes(actividad) && (
+            <Field label="Seleccione la actividad específica">
+              <select
+                value={actividad}
+                onChange={(e) => setActividad(e.target.value)}
+                style={{ ...inputStyle, cursor: "pointer" }}
+              >
+                {Object.entries(ACTIVIDADES_OTRAS_AGRUPADAS).map(([sector, keys]) => (
+                  <optgroup key={sector} label={sector} style={{ color: "#000" }}>
+                    {keys.map((key) => (
+                      <option key={key} value={key} style={{ color: "#000" }}>
+                        {ACTIVITY_PROFILES[key].label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </Field>
+          )}
 
           <Field label="Punto de vertimiento">
             <select
@@ -318,6 +435,17 @@ export default function App() {
             <div className="text-xs leading-relaxed" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.inkDim }}>
               DBO5 {profilePreview.dbo5.toLocaleString()} · DQO {profilePreview.dqo.toLocaleString()} · SST{" "}
               {profilePreview.sst.toLocaleString()} · GyA {profilePreview.gya.toLocaleString()} · pH {profilePreview.ph}
+            </div>
+            <div
+              className="text-xs mt-2"
+              style={{
+                fontFamily: "'IBM Plex Mono', monospace",
+                color: ACTIVITY_PROFILES[actividad].confianza === "literatura" ? TOKENS.brass : TOKENS.rust,
+              }}
+            >
+              {ACTIVITY_PROFILES[actividad].confianza === "literatura"
+                ? "Valor de literatura específica del proceso"
+                : "⚠ Estimación genérica — pendiente de validar con datos reales"}
             </div>
           </div>
         </section>
@@ -371,7 +499,7 @@ export default function App() {
             </div>
           ) : (
             <>
-              <div className="flex items-start justify-between mb-6">
+              <div className="flex items-start justify-between mb-3">
                 <h2 className="text-sm uppercase tracking-wide" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.ink }}>
                   Tren de tratamiento propuesto — Q = {caudal || "?"} L/s
                 </h2>
@@ -386,6 +514,18 @@ export default function App() {
                   construcción
                 </div>
               </div>
+
+              {remoteResult?.eTotal != null && (
+                <p className="text-xs mb-4" style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
+                  Eficiencia de remoción de DBO5 requerida para cumplir la norma: {(remoteResult.eTotal * 100).toFixed(0)}%
+                </p>
+              )}
+
+              {(remoteResult?.advertencias || []).map((adv, i) => (
+                <div key={i} className="mb-4 p-3 text-xs rounded-sm" style={{ border: `1px solid ${TOKENS.rust}`, color: TOKENS.rust }}>
+                  ⚠ {adv}
+                </div>
+              ))}
 
               <ol className="relative">
                 {(remoteResult?.units || []).map((u, i) => (
@@ -462,7 +602,8 @@ export default function App() {
                           <tr key={i} style={{ borderBottom: `1px solid ${TOKENS.grid}` }}>
                             <td className="py-2 pr-4">{u.nombre}</td>
                             <td className="py-2 text-right" style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
-                              ${u.costoEstimado.min}M – ${u.costoEstimado.max}M COP
+                              ${Math.round(u.costoEstimado.min).toLocaleString("es-CO")} – $
+                              {Math.round(u.costoEstimado.max).toLocaleString("es-CO")} COP
                             </td>
                           </tr>
                         ))}
