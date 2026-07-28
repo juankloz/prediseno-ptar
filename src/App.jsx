@@ -12,7 +12,7 @@ const PAYMENT_LINK_COMPLETO = "https://checkout.wompi.co/l/SU_LINK_INFORME_COMPL
 const API_URL = "/api/prediseno";
 
 // Reemplace por la URL de su formulario en formspree.io (gratis, sin código) — ver README.md
-const LEAD_FORM_URL = "https://formspree.io/f/xjgnpzlo";
+const LEAD_FORM_URL = "https://formspree.io/f/SU_ID_DE_FORMULARIO";
 
 // Coloque su logo en la carpeta public/ del proyecto (ver README.md) — esta ruta ya lo recoge.
 const LOGO_URL = "/logo.png";
@@ -22,7 +22,8 @@ const LOGO_URL = "/logo.png";
 const CONTACTO = {
   marca: "JuanKloz",
   tagline: "Ingeniería, agua y consultoría ambiental",
-  instagram: "https://www.instagram.com/juankloz75",
+  instagram: "@juankloz75",
+  instagramUrl: "https://www.instagram.com/juankloz75/",
   web: "https://juankloz.github.io/",
   telefono: "3173002242",
 };
@@ -192,7 +193,19 @@ const ACTIVIDADES_OTRAS_AGRUPADAS = Object.keys(ACTIVITY_PROFILES)
 const VERTIMIENTO_LABELS = {
   cuerpo_agua: "Cuerpo de agua superficial",
   alcantarillado: "Alcantarillado público",
-  suelo: "Suelo (riego / infiltración)",
+  suelo: "Suelo (riego / infiltración) — solo doméstico",
+};
+
+// Resolución 699 de 2021 — solo aplica cuando actividad === "domestico".
+const TIPO_USUARIO_SUELO_LABELS = {
+  rural_dispersa: "Vivienda rural dispersa (exenta si cumple el RAS)",
+  equiparable: "Equiparable a vivienda rural dispersa (≤ 1,0 kg DBO5/día)",
+  diferente: "Usuario diferente (mayor generación doméstica)",
+};
+const CATEGORIA_INFILTRACION_LABELS = {
+  I: "Categoría I — infiltración 16 a 27 mm/h",
+  II: "Categoría II — infiltración 2,6-15 o 28-52 mm/h",
+  III: "Categoría III — infiltración <2,5 o >53 mm/h",
 };
 
 // La lógica de decisión (buildTrain / getNormativa) vive en api/prediseno.js,
@@ -250,6 +263,8 @@ export default function App() {
   const [caudal, setCaudal] = useState("50");
   const [actividad, setActividad] = useState("domestico");
   const [puntoVertimiento, setPuntoVertimiento] = useState("cuerpo_agua");
+  const [tipoUsuarioSuelo, setTipoUsuarioSuelo] = useState("diferente");
+  const [categoriaInfiltracion, setCategoriaInfiltracion] = useState("I");
   const [tieneParametros, setTieneParametros] = useState(false);
   const [params, setParams] = useState({ dbo5: "", dqo: "", sst: "", gya: "", ph: "" });
 
@@ -290,7 +305,7 @@ export default function App() {
       const resp = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actividad, puntoVertimiento, tieneParametros, params, caudal }),
+        body: JSON.stringify({ actividad, puntoVertimiento, tieneParametros, params, caudal, tipoUsuarioSuelo, categoriaInfiltracion }),
       });
       if (!resp.ok) throw new Error("respuesta no válida");
       const data = await resp.json();
@@ -400,11 +415,16 @@ export default function App() {
             <select
               value={ACTIVIDADES_PRINCIPALES.includes(actividad) ? actividad : "otra"}
               onChange={(e) => {
+                let nuevaActividad;
                 if (e.target.value === "otra") {
                   const primerSector = Object.keys(ACTIVIDADES_OTRAS_AGRUPADAS)[0];
-                  setActividad(ACTIVIDADES_OTRAS_AGRUPADAS[primerSector][0]);
+                  nuevaActividad = ACTIVIDADES_OTRAS_AGRUPADAS[primerSector][0];
                 } else {
-                  setActividad(e.target.value);
+                  nuevaActividad = e.target.value;
+                }
+                setActividad(nuevaActividad);
+                if (nuevaActividad !== "domestico" && puntoVertimiento === "suelo") {
+                  setPuntoVertimiento("cuerpo_agua");
                 }
               }}
               style={{ ...inputStyle, cursor: "pointer" }}
@@ -424,7 +444,12 @@ export default function App() {
             <Field label="Seleccione la actividad específica">
               <select
                 value={actividad}
-                onChange={(e) => setActividad(e.target.value)}
+                onChange={(e) => {
+                  setActividad(e.target.value);
+                  if (e.target.value !== "domestico" && puntoVertimiento === "suelo") {
+                    setPuntoVertimiento("cuerpo_agua");
+                  }
+                }}
                 style={{ ...inputStyle, cursor: "pointer" }}
               >
                 {Object.entries(ACTIVIDADES_OTRAS_AGRUPADAS).map(([sector, keys]) => (
@@ -446,13 +471,49 @@ export default function App() {
               onChange={(e) => setPuntoVertimiento(e.target.value)}
               style={{ ...inputStyle, cursor: "pointer" }}
             >
-              {Object.entries(VERTIMIENTO_LABELS).map(([key, v]) => (
-                <option key={key} value={key} style={{ color: "#000" }}>
-                  {v}
-                </option>
-              ))}
+              {Object.entries(VERTIMIENTO_LABELS)
+                .filter(([key]) => key !== "suelo" || actividad === "domestico")
+                .map(([key, v]) => (
+                  <option key={key} value={key} style={{ color: "#000" }}>
+                    {v}
+                  </option>
+                ))}
             </select>
           </Field>
+
+          {puntoVertimiento === "suelo" && actividad === "domestico" && (
+            <>
+              <Field label="Tipo de usuario (Res. 699 de 2021)">
+                <select
+                  value={tipoUsuarioSuelo}
+                  onChange={(e) => setTipoUsuarioSuelo(e.target.value)}
+                  style={{ ...inputStyle, cursor: "pointer" }}
+                >
+                  {Object.entries(TIPO_USUARIO_SUELO_LABELS).map(([key, v]) => (
+                    <option key={key} value={key} style={{ color: "#000" }}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
+              {tipoUsuarioSuelo !== "rural_dispersa" && (
+                <Field label="Categoría de velocidad de infiltración">
+                  <select
+                    value={categoriaInfiltracion}
+                    onChange={(e) => setCategoriaInfiltracion(e.target.value)}
+                    style={{ ...inputStyle, cursor: "pointer" }}
+                  >
+                    {Object.entries(CATEGORIA_INFILTRACION_LABELS).map(([key, v]) => (
+                      <option key={key} value={key} style={{ color: "#000" }}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+            </>
+          )}
 
           <label className="flex items-center gap-2 mt-6 mb-4 cursor-pointer select-none">
             <input type="checkbox" checked={tieneParametros} onChange={(e) => setTieneParametros(e.target.checked)} />
@@ -881,8 +942,19 @@ export default function App() {
                   </div>
 
                   <div className="pie-de-pagina" style={{ display: "none" }}>
-                    {CONTACTO.marca} — {CONTACTO.tagline} — Instagram {CONTACTO.instagram}
-                    {CONTACTO.web && ` — ${CONTACTO.web}`}
+                    {CONTACTO.marca} — {CONTACTO.tagline}
+                    {CONTACTO.instagram && (
+                      <>
+                        {" — Instagram "}
+                        <a href={CONTACTO.instagramUrl} style={{ color: "inherit" }}>{CONTACTO.instagram}</a>
+                      </>
+                    )}
+                    {CONTACTO.web && (
+                      <>
+                        {" — "}
+                        <a href={CONTACTO.web} style={{ color: "inherit" }}>{CONTACTO.web}</a>
+                      </>
+                    )}
                     {CONTACTO.telefono && ` — ${CONTACTO.telefono}`}
                   </div>
 
