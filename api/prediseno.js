@@ -84,15 +84,37 @@ const ACTIVITY_PROFILES = {
 const VERTIMIENTO_LABELS = {
   cuerpo_agua: "Cuerpo de agua superficial",
   alcantarillado: "Alcantarillado público",
-  suelo: "Suelo (riego / infiltración)",
+  suelo: "Suelo (riego / infiltración) — solo doméstico",
 };
 
-function getNormativa(punto) {
+// Resolución 699 de 2021 — SOLO aplica a Aguas Residuales Domésticas Tratadas (ARD-T).
+// "diferente" trae DBO5 explícito (Tabla 2, fijo en 90 mg/L en las 3 categorías).
+// "equiparable" (Tabla 1) NO trae DBO5 explícito — se aproxima desde DQO con la razón
+// DQO/DBO5 típica doméstica (≈2:1), marcado como aproximación.
+// "rural_dispersa" no requiere permiso si la solución cumple los parámetros del RAS — exenta.
+const TIPO_USUARIO_SUELO_LABELS = {
+  rural_dispersa: "Vivienda rural dispersa (exenta de permiso si cumple el RAS)",
+  equiparable: "Equiparable a vivienda rural dispersa (≤ 1,0 kg DBO5/día)",
+  diferente: "Usuario diferente (mayor generación doméstica)",
+};
+const CATEGORIA_INFILTRACION_LABELS = {
+  I: "Categoría I — infiltración 16 a 27 mm/h",
+  II: "Categoría II — infiltración 2,6-15 o 28-52 mm/h",
+  III: "Categoría III — infiltración <2,5 o >53 mm/h",
+};
+const SUELO_LIMITE_DBO5 = {
+  diferente: { I: 90, II: 90, III: 90 }, // Tabla 2 — valor real, fijo
+  equiparable: { I: 100, II: 100, III: 100 }, // aproximado desde DQO=200 (Tabla 1), razón DQO/DBO5≈2
+};
+
+function getNormativa(punto, tipoUsuarioSuelo) {
   if (punto === "cuerpo_agua")
     return "Resolución 0631 de 2015 — límites de vertimiento a cuerpos de agua superficiales, según actividad.";
   if (punto === "alcantarillado")
     return "Resolución 0631 de 2015 + reglamento de vertimiento de la entidad prestadora del servicio de alcantarillado.";
-  return "Decreto 1076 de 2015 (uso del suelo) + criterios de la autoridad ambiental regional para reúso/infiltración.";
+  if (tipoUsuarioSuelo === "rural_dispersa")
+    return "Resolución 699 de 2021 (MADS) — exento de permiso de vertimiento si la solución individual de saneamiento cumple los parámetros del RAS (Ley 1955 de 2019, Art. 279).";
+  return "Resolución 699 de 2021 (MADS) — parámetros y valores límites para vertimientos de Aguas Residuales Domésticas Tratadas (ARD-T) al suelo.";
 }
 
 // Límite DBO5 (mg/L) a cuerpo de agua superficial, por actividad — de la Resolución 631 de 2015, Art. 8-15.
@@ -123,10 +145,15 @@ const ETA_ETAPA1_ALTA = 0.65; // UASB alta carga como primera etapa
 const ETA_ETAPA1_MEDIA = 0.55; // RAFA como primera etapa (carga media)
 const E_MAX = 0.97; // tope del modelo cinético de primer orden
 
-function calcularLimiteEfectivo(actividad, puntoVertimiento) {
+function calcularLimiteEfectivo(actividad, puntoVertimiento, tipoUsuarioSuelo, categoriaInfiltracion) {
   const base = LIMITE_DBO5[actividad];
   if (puntoVertimiento === "alcantarillado") return base * 1.5;
-  return base; // cuerpo_agua, y suelo como proxy conservador (Res. 631 no aplica a suelo)
+  if (puntoVertimiento === "suelo") {
+    if (tipoUsuarioSuelo === "rural_dispersa") return null; // exento, sin límite numérico aplicable
+    const tabla = SUELO_LIMITE_DBO5[tipoUsuarioSuelo];
+    return tabla ? tabla[categoriaInfiltracion] : base; // fallback defensivo
+  }
+  return base; // cuerpo_agua
 }
 
 function clampE(e) {
@@ -257,17 +284,26 @@ function memoriaCalculo(nombre, caudalLs, eRequerida) {
   };
 }
 
-function buildTrain(profile, puntoVertimiento, caudalLs, actividad) {
+function buildTrain(profile, puntoVertimiento, caudalLs, actividad, tipoUsuarioSuelo, categoriaInfiltracion) {
   const units = [];
   const advertencias = [];
 
-  const limiteEfectivo = calcularLimiteEfectivo(actividad, puntoVertimiento);
-  const eTotalRaw = 1 - limiteEfectivo / profile.dbo5;
+  const limiteEfectivo = calcularLimiteEfectivo(actividad, puntoVertimiento, tipoUsuarioSuelo, categoriaInfiltracion);
+  const exentoPorRAS = puntoVertimiento === "suelo" && tipoUsuarioSuelo === "rural_dispersa";
+  const eTotalRaw = exentoPorRAS ? 0.75 : 1 - limiteEfectivo / profile.dbo5; // 0.75 = supuesto genérico para dimensionar, no exige límite normativo
   const eTotal = clampE(eTotalRaw);
 
-  if (puntoVertimiento === "suelo") {
+  if (exentoPorRAS) {
     advertencias.push(
-      "La Resolución 631 de 2015 no aplica a vertimientos a suelo (Art. 1, parágrafo). Se usó el límite de cuerpo de agua como referencia conservadora — confirme el criterio real con la autoridad ambiental."
+      "Usuario de vivienda rural dispersa: según la Resolución 699 de 2021 y el Art. 279 de la Ley 1955 de 2019, no requiere permiso de vertimiento si la solución individual de saneamiento se diseña bajo los parámetros del RAS. Este prediseño usa una eficiencia de referencia (75%) solo para dimensionar, no un límite normativo exigido."
+    );
+  } else if (puntoVertimiento === "suelo" && tipoUsuarioSuelo === "equiparable") {
+    advertencias.push(
+      "La Resolución 699 de 2021 no fija un límite explícito de DBO5 para usuarios equiparables (Tabla 1) — se aproximó desde el límite de DQO (200 mg/L) con la razón DQO/DBO5 típica doméstica (≈2:1). Válido solo si la generación es ≤ 1,0 kg DBO5/día, como exige la resolución."
+    );
+  } else if (puntoVertimiento === "suelo") {
+    advertencias.push(
+      "Límite de DBO5 = 90 mg/L según Resolución 699 de 2021 (Tabla 2, usuarios diferentes), constante en las 3 categorías de velocidad de infiltración — esa velocidad sí afecta otros parámetros (SST, SSED, cloruros) no modelados aún en el costeo."
     );
   }
   if (eTotalRaw > E_MAX) {
@@ -420,10 +456,16 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Use POST" });
 
   try {
-    const { actividad, puntoVertimiento, tieneParametros, params, caudal } = req.body;
+    const { actividad, puntoVertimiento, tieneParametros, params, caudal, tipoUsuarioSuelo, categoriaInfiltracion } = req.body;
 
     if (!ACTIVITY_PROFILES[actividad] || !VERTIMIENTO_LABELS[puntoVertimiento]) {
       return res.status(400).json({ error: "actividad o puntoVertimiento inválidos" });
+    }
+    if (puntoVertimiento === "suelo" && actividad !== "domestico") {
+      return res.status(400).json({ error: "La Resolución 699 de 2021 (vertimiento a suelo) solo aplica a la actividad doméstica." });
+    }
+    if (puntoVertimiento === "suelo" && !TIPO_USUARIO_SUELO_LABELS[tipoUsuarioSuelo]) {
+      return res.status(400).json({ error: "Debe indicar el tipo de usuario para vertimiento a suelo." });
     }
 
     const caudalLs = parseFloat(caudal) || 0;
@@ -440,8 +482,8 @@ export default async function handler(req, res) {
         }
       : base;
 
-    const { units, eTotal, advertencias } = buildTrain(profile, puntoVertimiento, caudalLs, actividad);
-    const normativa = getNormativa(puntoVertimiento);
+    const { units, eTotal, advertencias } = buildTrain(profile, puntoVertimiento, caudalLs, actividad, tipoUsuarioSuelo, categoriaInfiltracion);
+    const normativa = getNormativa(puntoVertimiento, tipoUsuarioSuelo);
     const capex = calcularCapexTotal(units);
 
     return res.status(200).json({ profile, units, normativa, capex, eTotal, advertencias });
