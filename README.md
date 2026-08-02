@@ -1,3 +1,5 @@
+> **Versión segura Fase 1:** los pagos están desactivados. El acceso premium depende de Supabase Auth y de un permiso por proyecto. Consulte `INSTRUCCIONES_FASE1.md`.
+
 # Prediseño de PTAR — proyecto desplegable
 
 Este proyecto tiene dos partes que se despliegan juntas, en el mismo sitio:

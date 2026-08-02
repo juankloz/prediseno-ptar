@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+import { authenticatedUser } from "./_lib/supabase.js";
+import { validatePredisenoInput, ValidationError } from "../shared/validation.js";
+
 // api/prediseno.js
 // Despliegue sugerido: Vercel (gratis para este volumen). Ver instrucciones al final del archivo.
 
@@ -451,44 +455,160 @@ function calcularCapexTotal(units) {
   return { min, max, texto: `${formatCOP(min)} – ${formatCOP(max)} COP` };
 }
 
+const ENGINE_VERSION = "2026.08.0-secure-preview-1";
+const NORMATIVE_VERSION = "Resoluciones 0631 de 2015 y 0699 de 2021 — alcance preliminar";
+
+function publicUnits(units) {
+  return units.map(({ costoEstimado, memoria, calidadSalida, ...unit }) => unit);
+}
+
+function basicUnits(units) {
+  return units.map(({ memoria, calidadSalida, ...unit }) => unit);
+}
+
+function activeEntitlement(entitlement) {
+  if (!entitlement?.active) return false;
+  if (!entitlement.expires_at) return true;
+  return new Date(entitlement.expires_at).getTime() > Date.now();
+}
+
 export default async function handler(req, res) {
+  res.setHeader("Cache-Control", "no-store, max-age=0");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Use POST" });
 
   try {
-    const { actividad, puntoVertimiento, tieneParametros, params, caudal, tipoUsuarioSuelo, categoriaInfiltracion } = req.body;
+    let input = validatePredisenoInput(req.body || {});
+    const auth = await authenticatedUser(req);
+    let project = null;
+    let entitlement = null;
+
+    if (input.projectId && !auth) {
+      return res.status(401).json({ error: "Inicia sesión para usar un proyecto guardado." });
+    }
+
+    if (auth && input.projectId) {
+      const { data, error } = await auth.client
+        .from("ptar_projects")
+        .select("id,user_id,input_data")
+        .eq("id", input.projectId)
+        .maybeSingle();
+
+      if (error || !data) {
+        return res.status(403).json({ error: "El proyecto no existe o no pertenece al usuario." });
+      }
+
+      project = data;
+      input = validatePredisenoInput({ ...data.input_data, projectId: data.id });
+
+      const { data: entitlementData } = await auth.client
+        .from("ptar_entitlements")
+        .select("id,report_tier,active,expires_at,remaining_regenerations")
+        .eq("project_id", data.id)
+        .eq("user_id", auth.user.id)
+        .eq("active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (activeEntitlement(entitlementData)) entitlement = entitlementData;
+    }
+
+    const {
+      actividad,
+      puntoVertimiento,
+      tieneParametros,
+      params,
+      caudal,
+      tipoUsuarioSuelo,
+      categoriaInfiltracion,
+    } = input;
 
     if (!ACTIVITY_PROFILES[actividad] || !VERTIMIENTO_LABELS[puntoVertimiento]) {
-      return res.status(400).json({ error: "actividad o puntoVertimiento inválidos" });
-    }
-    if (puntoVertimiento === "suelo" && actividad !== "domestico") {
-      return res.status(400).json({ error: "La Resolución 699 de 2021 (vertimiento a suelo) solo aplica a la actividad doméstica." });
-    }
-    if (puntoVertimiento === "suelo" && !TIPO_USUARIO_SUELO_LABELS[tipoUsuarioSuelo]) {
-      return res.status(400).json({ error: "Debe indicar el tipo de usuario para vertimiento a suelo." });
+      return res.status(400).json({ error: "Actividad o punto de vertimiento inválidos." });
     }
 
-    const caudalLs = parseFloat(caudal) || 0;
-
+    const caudalLs = caudal;
     const base = ACTIVITY_PROFILES[actividad];
     const profile = tieneParametros
       ? {
-          label: base.label + " (parámetros de laboratorio del cliente)",
-          dbo5: parseFloat(params?.dbo5) || base.dbo5,
-          dqo: parseFloat(params?.dqo) || base.dqo,
-          sst: parseFloat(params?.sst) || base.sst,
-          gya: parseFloat(params?.gya) || base.gya,
-          ph: parseFloat(params?.ph) || base.ph,
+          label: `${base.label} (parámetros de laboratorio del cliente)`,
+          dbo5: params.dbo5,
+          dqo: params.dqo,
+          sst: params.sst,
+          gya: params.gya,
+          ph: params.ph,
         }
       : base;
 
-    const { units, eTotal, advertencias } = buildTrain(profile, puntoVertimiento, caudalLs, actividad, tipoUsuarioSuelo, categoriaInfiltracion);
+    const { units, eTotal, advertencias } = buildTrain(
+      profile,
+      puntoVertimiento,
+      caudalLs,
+      actividad,
+      tipoUsuarioSuelo,
+      categoriaInfiltracion
+    );
     const normativa = getNormativa(puntoVertimiento, tipoUsuarioSuelo);
     const capex = calcularCapexTotal(units);
+    const tier = entitlement?.report_tier || null;
 
-    return res.status(200).json({ profile, units, normativa, capex, eTotal, advertencias });
-  } catch (err) {
-    return res.status(500).json({ error: "Error interno" });
+    const preview = {
+      profile,
+      units: publicUnits(units),
+      normativa,
+      capex: null,
+      eTotal,
+      advertencias,
+    };
+
+    let output = preview;
+    if (tier === "basic") {
+      output = { ...preview, units: basicUnits(units), capex };
+    } else if (tier === "complete") {
+      output = { ...preview, units, capex };
+    }
+
+    let runId = null;
+    if (auth && project) {
+      const hash = createHash("sha256")
+        .update(JSON.stringify(input))
+        .digest("hex");
+
+      const { data: run } = await auth.client
+        .from("ptar_calculation_runs")
+        .insert({
+          project_id: project.id,
+          user_id: auth.user.id,
+          engine_version: ENGINE_VERSION,
+          normative_version: NORMATIVE_VERSION,
+          input_snapshot: input,
+          public_output: preview,
+          input_hash: hash,
+        })
+        .select("id")
+        .single();
+      runId = run?.id || null;
+    }
+
+    return res.status(200).json({
+      ...output,
+      runId,
+      engineVersion: ENGINE_VERSION,
+      access: {
+        authenticated: Boolean(auth),
+        projectId: project?.id || null,
+        tier,
+        paymentEnabled: false,
+      },
+    });
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message, details: error.details });
+    }
+    console.error("prediseno_error", error);
+    return res.status(500).json({ error: "No fue posible procesar el prediseño." });
   }
-};
-
+}

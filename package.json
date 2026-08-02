@@ -1,16 +1,18 @@
 {
   "name": "prediseno-ptar",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check": "node --check api/prediseno.js && node --check api/_lib/supabase.js && node --check shared/validation.js"
   },
   "dependencies": {
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "@supabase/supabase-js": "^2.57.4"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",

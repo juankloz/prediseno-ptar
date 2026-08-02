@@ -1,18 +1,17 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import AuthPanel from "./components/AuthPanel.jsx";
+import { supabase } from "./lib/supabase.js";
 
 // El número de WhatsApp ya no vive aquí — vive en una variable de entorno en Vercel
 // y lo resuelve la función api/chat.js, para que no quede visible en el código ni en la URL.
 
-// Reemplace por sus links de pago de Wompi o Bold (se generan sin código desde su panel — ver README.md)
-const PAYMENT_LINK_BASICO = "https://checkout.wompi.co/l/SU_LINK_INFORME_BASICO";
-const PAYMENT_LINK_COMPLETO = "https://checkout.wompi.co/l/SU_LINK_INFORME_COMPLETO";
+// Los pagos permanecerán desactivados hasta integrar órdenes y webhook firmado de Wompi.
 
 // Como el frontend y la función /api se despliegan juntos en el mismo proyecto de Vercel,
 // esta ruta relativa funciona sin configurar ninguna URL.
 const API_URL = "/api/prediseno";
 
-// Reemplace por la URL de su formulario en formspree.io (gratis, sin código) — ver README.md
-const LEAD_FORM_URL = "https://formspree.io/f/xjgnpzlo";
+// Los datos de contacto ya no se envían a Formspree. Permanecen en el navegador durante esta fase.
 
 // Coloque su logo en la carpeta public/ del proyecto (ver README.md) — esta ruta ya lo recoge.
 const LOGO_URL = "/logo.png";
@@ -277,12 +276,42 @@ export default function App() {
   const [remoteResult, setRemoteResult] = useState(null);
   const [remoteLoading, setRemoteLoading] = useState(false);
   const [remoteError, setRemoteError] = useState("");
+  const [session, setSession] = useState(null);
+  const [projectId, setProjectId] = useState(null);
+  const [projectStatus, setProjectStatus] = useState("idle");
 
-  const nivelPagado = useMemo(() => {
-    if (typeof window === "undefined") return null;
-    const v = new URLSearchParams(window.location.search).get("pagado");
-    return v === "basico" || v === "completo" ? v : null;
+  const nivelPagado = remoteResult?.access?.tier || null;
+
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setSession(data.session || null);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession || null);
+      if (!nextSession) {
+        setProjectId(null);
+        setRemoteResult(null);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    if (session?.user?.email && !leadContact) {
+      setLeadContact(session.user.email);
+    }
+  }, [session, leadContact]);
+
+  useEffect(() => {
+    setRemoteResult(null);
+    setRemoteError("");
+  }, [caudal, actividad, puntoVertimiento, tipoUsuarioSuelo, categoriaInfiltracion, tieneParametros, params]);
 
   const [verEjemplo, setVerEjemplo] = useState(false);
 
@@ -298,20 +327,67 @@ export default function App() {
     };
   }, [tieneParametros, params, actividad]);
 
+  function inputPayload() {
+    return {
+      actividad,
+      puntoVertimiento,
+      tieneParametros,
+      params,
+      caudal,
+      tipoUsuarioSuelo,
+      categoriaInfiltracion,
+    };
+  }
+
+  async function saveProjectForSession() {
+    if (!session?.user) return null;
+
+    setProjectStatus("saving");
+    const input_data = inputPayload();
+    const projectRow = {
+      user_id: session.user.id,
+      name: `${ACTIVITY_PROFILES[actividad].label} · ${new Date().toLocaleDateString("es-CO")}`,
+      status: "draft",
+      activity_code: actividad,
+      discharge_point: puntoVertimiento,
+      input_data,
+      updated_at: new Date().toISOString(),
+    };
+
+    const query = projectId
+      ? supabase.from("ptar_projects").update(projectRow).eq("id", projectId)
+      : supabase.from("ptar_projects").insert(projectRow);
+
+    const { data, error } = await query.select("id").single();
+    if (error) {
+      setProjectStatus("error");
+      throw new Error(`No fue posible guardar el proyecto: ${error.message}`);
+    }
+
+    setProjectId(data.id);
+    setProjectStatus("saved");
+    return data.id;
+  }
+
   async function fetchPrediseno() {
     setRemoteLoading(true);
     setRemoteError("");
     try {
+      const activeProjectId = session ? await saveProjectForSession() : null;
+      const headers = { "Content-Type": "application/json" };
+      if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+
       const resp = await fetch(API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actividad, puntoVertimiento, tieneParametros, params, caudal, tipoUsuarioSuelo, categoriaInfiltracion }),
+        headers,
+        body: JSON.stringify({ ...inputPayload(), projectId: activeProjectId }),
       });
-      if (!resp.ok) throw new Error("respuesta no válida");
       const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Respuesta no válida");
       setRemoteResult(data);
+      if (data.access?.projectId) setProjectId(data.access.projectId);
     } catch (err) {
-      setRemoteError("No se pudo calcular el esquema. Intente de nuevo en unos segundos.");
+      setRemoteError(err.message || "No se pudo calcular el esquema.");
     } finally {
       setRemoteLoading(false);
     }
@@ -330,24 +406,12 @@ export default function App() {
     setLeadError("");
     setLeadSaving(true);
     try {
-      // Envía el lead a Formspree — usted lo recibe por correo automáticamente.
-      await fetch(LEAD_FORM_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          nombre: leadName,
-          contacto: leadContact,
-          caudal,
-          actividad: ACTIVITY_PROFILES[actividad].label,
-          puntoVertimiento: VERTIMIENTO_LABELS[puntoVertimiento],
-        }),
-      });
-    } catch (err) {
-      console.error("No se pudo enviar el lead:", err);
+      // En esta fase los datos de contacto permanecen en el navegador.
+      // El proyecto técnico solo se guarda en Supabase cuando existe una sesión verificada.
+      setLeadCaptured(true);
+      await fetchPrediseno();
     } finally {
       setLeadSaving(false);
-      setLeadCaptured(true);
-      fetchPrediseno();
     }
   }
 
@@ -393,6 +457,15 @@ export default function App() {
           incluir el sistema de tratamiento, a nivel conceptual.
         </p>
       </header>
+
+      <div className="px-6 pb-6 md:px-12">
+        <AuthPanel
+          session={session}
+          projectId={projectId}
+          projectStatus={projectStatus}
+          tokens={TOKENS}
+        />
+      </div>
 
       <main className="px-6 pb-16 md:px-12 grid grid-cols-1 md:grid-cols-5 gap-8">
         {/* FORM PANEL */}
@@ -676,23 +749,31 @@ export default function App() {
 
               {!nivelPagado ? (
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div
+                    className="md:col-span-2 p-4 text-xs leading-relaxed"
+                    style={{ border: `1px solid ${TOKENS.brass}`, color: TOKENS.inkDim }}
+                  >
+                    <strong style={{ color: TOKENS.brass }}>Pago seguro en preparación.</strong>{" "}
+                    Se eliminó el acceso por <code>?pagado=</code>. Un informe solo se
+                    desbloqueará cuando exista una orden aprobada asociada a este usuario y a
+                    este proyecto. {session ? "La cuenta ya está verificada." : "Inicia sesión arriba para guardar el proyecto."}
+                  </div>
+
                   <div className="p-6 rounded-sm" style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.grid}` }}>
                     <div className="text-xs uppercase tracking-widest mb-2" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
                       Informe 1 — $10.000 COP
                     </div>
                     <p className="text-sm mb-4" style={{ color: TOKENS.inkDim }}>
-                      Estimado de inversión (CAPEX) por unidad y total del sistema, en un PDF con
-                      su marca.
+                      Costo preliminar de estructuras principales por unidad y resumen del sistema.
                     </p>
-                    <a
-                      href={PAYMENT_LINK_BASICO}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      disabled
                       className="inline-block px-5 py-2 text-xs uppercase tracking-widest"
-                      style={{ background: TOKENS.brass, color: TOKENS.blueprintDeep, fontFamily: "'IBM Plex Mono', monospace", textDecoration: "none" }}
+                      style={{ background: TOKENS.inkDim, color: TOKENS.blueprintDeep, opacity: 0.65, cursor: "not-allowed" }}
                     >
-                      Comprar Informe 1 →
-                    </a>
+                      Wompi pendiente de configurar
+                    </button>
                   </div>
 
                   <div className="p-6 rounded-sm" style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.brass}` }}>
@@ -700,8 +781,7 @@ export default function App() {
                       Informe 2 — $250.000 COP
                     </div>
                     <p className="text-sm mb-3" style={{ color: TOKENS.inkDim }}>
-                      Todo lo del Informe 1, más memorias de cálculo (volumen, criterio de diseño,
-                      área) y la calidad del agua a la salida de cada unidad.
+                      Todo lo del Informe 1, más memorias de cálculo, dimensiones y calidad estimada por etapa.
                     </p>
                     <button
                       onClick={() => setVerEjemplo(!verEjemplo)}
@@ -710,15 +790,14 @@ export default function App() {
                     >
                       {verEjemplo ? "Ocultar ejemplo" : "Ver ejemplo del Informe 2 →"}
                     </button>
-                    <a
-                      href={PAYMENT_LINK_COMPLETO}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      disabled
                       className="inline-block px-5 py-2 text-xs uppercase tracking-widest"
-                      style={{ background: TOKENS.brass, color: TOKENS.blueprintDeep, fontFamily: "'IBM Plex Mono', monospace", textDecoration: "none" }}
+                      style={{ background: TOKENS.inkDim, color: TOKENS.blueprintDeep, opacity: 0.65, cursor: "not-allowed" }}
                     >
-                      Comprar Informe 2 →
-                    </a>
+                      Wompi pendiente de configurar
+                    </button>
                   </div>
 
                   {verEjemplo && (
@@ -736,7 +815,7 @@ export default function App() {
                             <th className="text-left pb-2">Unidad</th>
                             <th className="text-left pb-2">Criterio de diseño</th>
                             <th className="text-right pb-2">Volumen (m³)</th>
-                            <th className="text-right pb-2">Área (m²)</th>
+                            <th className="text-right pb-2">Área fabricada (m²)</th>
                             <th className="text-right pb-2">DBO5 salida</th>
                             <th className="text-right pb-2">Costo</th>
                           </tr>
@@ -860,7 +939,7 @@ export default function App() {
 
                     <div className="print-section print-pagebreak">
                       <h3 className="text-sm uppercase tracking-wide mb-3" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
-                        {nivelPagado === "completo" ? "6. Tren de tratamiento — memorias de cálculo y estimado de inversión" : "Estimado de inversión (CAPEX) — orden de magnitud"}
+                        {nivelPagado === "completo" ? "6. Tren de tratamiento — memorias de cálculo y estimado de inversión" : "Costo preliminar de estructuras principales — orden de magnitud"}
                       </h3>
                       <table className="w-full text-xs mb-3" style={{ color: TOKENS.ink, borderCollapse: "collapse" }}>
                         <thead>
@@ -869,7 +948,7 @@ export default function App() {
                               <th className="text-left pb-2">Unidad</th>
                               <th className="text-left pb-2">Criterio</th>
                               <th className="text-right pb-2">Vol. (m³)</th>
-                              <th className="text-right pb-2">Área (m²)</th>
+                              <th className="text-right pb-2">Área fabricada (m²)</th>
                               <th className="text-right pb-2">DBO5 salida</th>
                               <th className="text-right pb-2">Costo</th>
                             </tr>
@@ -903,7 +982,7 @@ export default function App() {
                         </tbody>
                       </table>
                       <p className="text-sm mb-1" style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
-                        Total estimado: {remoteResult?.capex?.texto}
+                        Total preliminar de estructuras: {remoteResult?.capex?.texto}
                       </p>
                       <p className="text-xs" style={{ color: TOKENS.inkDim }}>
                         Cifras de orden de magnitud para una escala pequeña-mediana — no reemplazan
