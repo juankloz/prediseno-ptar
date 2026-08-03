@@ -210,15 +210,6 @@ const CATEGORIA_INFILTRACION_LABELS = {
 // La lógica de decisión (buildTrain / getNormativa) vive en api/prediseno.js,
 // no aquí, para no exponerla en el navegador.
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// Acepta números con o sin +, entre 7 y 15 dígitos (rango internacional válido)
-const PHONE_RE = /^\+?[0-9][0-9\s-]{6,14}$/;
-
-function isValidContact(value) {
-  const v = value.trim();
-  return EMAIL_RE.test(v) || PHONE_RE.test(v);
-}
-
 function Field({ label, children }) {
   return (
     <label className="block mb-4">
@@ -245,7 +236,29 @@ const inputStyle = {
   outline: "none",
 };
 
-// Ejemplo fijo del Informe 2, para mostrar el alcance antes de comprar (caso ficticio, no calculado en vivo).
+// Ejemplos fijos para mostrar el alcance antes de comprar.
+// Son casos ficticios y no corresponden al cálculo del usuario.
+const EJEMPLO_INFORME1 = {
+  actividad: "Alimentos — elaboración de productos lácteos",
+  caudal: 20,
+  vertimiento: "Cuerpo de agua superficial",
+  tren: [
+    "Pretratamiento: cribado y desarenado",
+    "Sedimentación primaria / tanque Imhoff",
+    "Reactor anaerobio de flujo ascendente (RAFA / UASB)",
+    "Filtro percolador / humedal artificial",
+  ],
+  costoMin: 214501077,
+  costoMax: 348564250,
+  alcance: [
+    "Resumen del caso y de los datos de entrada",
+    "Tren conceptual de tratamiento recomendado",
+    "Costo preliminar por estructuras principales",
+    "Rango consolidado de inversión estructural",
+    "Supuestos, advertencias y limitaciones",
+  ],
+};
+
 const EJEMPLO_INFORME2 = {
   actividad: "Alimentos — elaboración de productos lácteos",
   caudal: 20,
@@ -266,12 +279,6 @@ export default function App() {
   const [categoriaInfiltracion, setCategoriaInfiltracion] = useState("I");
   const [tieneParametros, setTieneParametros] = useState(false);
   const [params, setParams] = useState({ dbo5: "", dqo: "", sst: "", gya: "", ph: "" });
-
-  const [leadCaptured, setLeadCaptured] = useState(false);
-  const [leadSaving, setLeadSaving] = useState(false);
-  const [leadName, setLeadName] = useState("");
-  const [leadContact, setLeadContact] = useState("");
-  const [leadError, setLeadError] = useState("");
 
   const [remoteResult, setRemoteResult] = useState(null);
   const [remoteLoading, setRemoteLoading] = useState(false);
@@ -303,17 +310,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (session?.user?.email && !leadContact) {
-      setLeadContact(session.user.email);
-    }
-  }, [session, leadContact]);
-
-  useEffect(() => {
     setRemoteResult(null);
     setRemoteError("");
   }, [caudal, actividad, puntoVertimiento, tipoUsuarioSuelo, categoriaInfiltracion, tieneParametros, params]);
 
-  const [verEjemplo, setVerEjemplo] = useState(false);
+  const [verEjemplo1, setVerEjemplo1] = useState(false);
+  const [verEjemplo2, setVerEjemplo2] = useState(false);
 
   const profilePreview = useMemo(() => {
     if (!tieneParametros) return ACTIVITY_PROFILES[actividad];
@@ -390,28 +392,6 @@ export default function App() {
       setRemoteError(err.message || "No se pudo calcular el esquema.");
     } finally {
       setRemoteLoading(false);
-    }
-  }
-
-  async function handleLeadSubmit(e) {
-    e.preventDefault();
-    if (!leadName.trim() || !leadContact.trim()) {
-      setLeadError("Ingrese su nombre y un correo o WhatsApp de contacto.");
-      return;
-    }
-    if (!isValidContact(leadContact)) {
-      setLeadError("Ingrese un correo válido (ej. nombre@dominio.com) o un número de WhatsApp válido (ej. 3001234567).");
-      return;
-    }
-    setLeadError("");
-    setLeadSaving(true);
-    try {
-      // En esta fase los datos de contacto permanecen en el navegador.
-      // El proyecto técnico solo se guarda en Supabase cuando existe una sesión verificada.
-      setLeadCaptured(true);
-      await fetchPrediseno();
-    } finally {
-      setLeadSaving(false);
     }
   }
 
@@ -601,7 +581,10 @@ export default function App() {
           {tieneParametros && (
             <div className="grid grid-cols-2 gap-x-4">
               {["dbo5", "dqo", "sst", "gya", "ph"].map((key) => (
-                <Field key={key} label={key.toUpperCase() + " (mg/L)"}>
+                <Field
+                  key={key}
+                  label={key === "ph" ? "pH (unidades)" : `${key.toUpperCase()} (mg/L)`}
+                >
                   <input
                     type="number"
                     value={params[key]}
@@ -641,50 +624,138 @@ export default function App() {
 
         {/* OUTPUT PANEL */}
         <section className="md:col-span-3">
-          {!leadCaptured ? (
-            <div className="p-6 md:p-8 rounded-sm max-w-md" style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.grid}` }}>
-              <div className="text-xs uppercase tracking-widest mb-2" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
-                Su esquema está listo
-              </div>
-              <p className="text-sm mb-5" style={{ color: TOKENS.inkDim }}>
-                Déjenos sus datos para mostrarle el tren de tratamiento propuesto y enviarle una copia.
-              </p>
-              <form onSubmit={handleLeadSubmit}>
-                <Field label="Nombre">
-                  <input type="text" value={leadName} onChange={(e) => setLeadName(e.target.value)} style={inputStyle} />
-                </Field>
-                <Field label="Correo o WhatsApp">
-                  <input type="text" value={leadContact} onChange={(e) => setLeadContact(e.target.value)} style={inputStyle} />
-                </Field>
-                {leadError && (
-                  <p className="text-xs mt-1 mb-2" style={{ color: TOKENS.rust }}>
-                    {leadError}
-                  </p>
-                )}
-                <button
-                  type="submit"
-                  disabled={leadSaving}
-                  className="mt-4 px-5 py-2 text-xs uppercase tracking-widest"
+          {remoteLoading ? (
+            <div
+              className="p-6 md:p-8 rounded-sm max-w-xl"
+              style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.grid}` }}
+              aria-live="polite"
+            >
+              <div className="flex items-center gap-3">
+                <span
+                  className="inline-block h-5 w-5 rounded-full animate-spin"
                   style={{
-                    background: TOKENS.brass,
-                    color: TOKENS.blueprintDeep,
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    border: "none",
-                    cursor: leadSaving ? "default" : "pointer",
-                    opacity: leadSaving ? 0.6 : 1,
+                    border: `2px solid ${TOKENS.grid}`,
+                    borderTopColor: TOKENS.brass,
                   }}
-                >
-                  {leadSaving ? "Guardando..." : "Ver mi esquema"}
-                </button>
-              </form>
+                  aria-hidden="true"
+                />
+                <div>
+                  <div
+                    className="text-xs uppercase tracking-widest"
+                    style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}
+                  >
+                    Analizando el caso
+                  </div>
+                  <p className="text-sm mt-1" style={{ color: TOKENS.inkDim }}>
+                    Estamos validando los datos y preparando el tren conceptual.
+                  </p>
+                </div>
+              </div>
             </div>
-          ) : remoteLoading ? (
-            <p className="text-sm" style={{ color: TOKENS.inkDim, fontFamily: "'IBM Plex Mono', monospace" }}>
-              Calculando esquema...
-            </p>
           ) : remoteError ? (
-            <div className="p-4 text-sm rounded-sm" style={{ border: `1px solid ${TOKENS.rust}`, color: TOKENS.rust }}>
-              {remoteError}
+            <div
+              className="p-6 rounded-sm max-w-xl"
+              style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.rust}` }}
+            >
+              <div
+                className="text-xs uppercase tracking-widest mb-2"
+                style={{ color: TOKENS.rust, fontFamily: "'IBM Plex Mono', monospace" }}
+              >
+                No pudimos generar la vista previa
+              </div>
+              <p className="text-sm mb-4" style={{ color: TOKENS.inkDim }}>
+                {remoteError}
+              </p>
+              <button
+                type="button"
+                onClick={fetchPrediseno}
+                className="px-5 py-2 text-xs uppercase tracking-widest"
+                style={{
+                  background: TOKENS.brass,
+                  color: TOKENS.blueprintDeep,
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "'IBM Plex Mono', monospace",
+                }}
+              >
+                Intentar nuevamente
+              </button>
+            </div>
+          ) : !remoteResult ? (
+            <div
+              className="p-6 md:p-8 rounded-sm max-w-xl"
+              style={{
+                background: TOKENS.blueprintDeep,
+                border: `1px solid ${TOKENS.grid}`,
+                boxShadow: "0 18px 55px rgba(0,0,0,0.16)",
+              }}
+            >
+              <div
+                className="text-xs uppercase tracking-widest mb-2"
+                style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}
+              >
+                Vista previa gratuita
+              </div>
+
+              <h2
+                className="text-xl md:text-2xl font-semibold mb-3"
+                style={{ color: TOKENS.ink, fontFamily: "'Space Grotesk', sans-serif" }}
+              >
+                Genere el esquema sin repetir sus datos personales
+              </h2>
+
+              <p className="text-sm mb-5 leading-relaxed" style={{ color: TOKENS.inkDim }}>
+                Revise la ficha técnica y genere el tren conceptual. No solicitaremos nuevamente
+                nombre, teléfono ni correo. {session
+                  ? "Su cuenta verificada se utilizará únicamente para guardar el proyecto."
+                  : "Puede consultar la vista previa sin iniciar sesión; al verificar el correo podrá guardar el proyecto y vincular un informe."}
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
+                {[
+                  ["01", "Validación de datos"],
+                  ["02", "Tren conceptual"],
+                  ["03", "Advertencias técnicas"],
+                ].map(([number, label]) => (
+                  <div
+                    key={number}
+                    className="p-3 rounded-sm"
+                    style={{ border: `1px solid ${TOKENS.grid}`, background: "rgba(255,255,255,0.025)" }}
+                  >
+                    <div
+                      className="text-[10px] mb-3"
+                      style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}
+                    >
+                      {number}
+                    </div>
+                    <div className="text-xs" style={{ color: TOKENS.ink }}>
+                      {label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={fetchPrediseno}
+                className="w-full sm:w-auto px-6 py-3 text-xs uppercase tracking-widest"
+                style={{
+                  background: TOKENS.brass,
+                  color: TOKENS.blueprintDeep,
+                  fontFamily: "'IBM Plex Mono', monospace",
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                Generar vista previa
+              </button>
+
+              {!session && (
+                <p className="text-[11px] mt-4 leading-relaxed" style={{ color: TOKENS.inkDim }}>
+                  La vista previa no queda guardada sin una cuenta verificada.
+                </p>
+              )}
             </div>
           ) : (
             <>
@@ -759,13 +830,57 @@ export default function App() {
                     este proyecto. {session ? "La cuenta ya está verificada." : "Inicia sesión arriba para guardar el proyecto."}
                   </div>
 
-                  <div className="p-6 rounded-sm" style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.grid}` }}>
+                  <div
+                    className="p-6 rounded-sm"
+                    style={{
+                      background: TOKENS.blueprintDeep,
+                      border: `1px solid ${TOKENS.grid}`,
+                      boxShadow: "0 14px 40px rgba(0,0,0,0.12)",
+                    }}
+                  >
+                    <div
+                      className="inline-flex px-2 py-1 mb-3 text-[9px] uppercase tracking-widest"
+                      style={{
+                        border: `1px solid ${TOKENS.grid}`,
+                        color: TOKENS.inkDim,
+                        fontFamily: "'IBM Plex Mono', monospace",
+                      }}
+                    >
+                      Resumen económico
+                    </div>
                     <div className="text-xs uppercase tracking-widest mb-2" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
                       Informe 1 — $10.000 COP
                     </div>
-                    <p className="text-sm mb-4" style={{ color: TOKENS.inkDim }}>
-                      Costo preliminar de estructuras principales por unidad y resumen del sistema.
+                    <h3 className="text-lg mb-2" style={{ color: TOKENS.ink, fontFamily: "'Space Grotesk', sans-serif" }}>
+                      Informe básico del sistema
+                    </h3>
+                    <p className="text-sm mb-3 leading-relaxed" style={{ color: TOKENS.inkDim }}>
+                      Presenta el caso, el tren conceptual y el costo preliminar de las estructuras
+                      principales, con supuestos y limitaciones.
                     </p>
+                    <ul className="text-xs mb-4 space-y-1" style={{ color: TOKENS.inkDim }}>
+                      <li>✓ Resumen del proyecto</li>
+                      <li>✓ Tren de tratamiento</li>
+                      <li>✓ Costos estructurales preliminares</li>
+                      <li>✓ Advertencias y alcance</li>
+                    </ul>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVerEjemplo1(!verEjemplo1);
+                        if (!verEjemplo1) setVerEjemplo2(false);
+                      }}
+                      className="block mb-4 text-xs underline"
+                      style={{
+                        color: TOKENS.brass,
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        fontFamily: "'IBM Plex Mono', monospace",
+                      }}
+                    >
+                      {verEjemplo1 ? "Ocultar ejemplo" : "Ver ejemplo del Informe 1 →"}
+                    </button>
                     <button
                       type="button"
                       disabled
@@ -776,19 +891,50 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="p-6 rounded-sm" style={{ background: TOKENS.blueprintDeep, border: `1px solid ${TOKENS.brass}` }}>
+                  <div
+                    className="p-6 rounded-sm"
+                    style={{
+                      background: TOKENS.blueprintDeep,
+                      border: `1px solid ${TOKENS.brass}`,
+                      boxShadow: "0 14px 40px rgba(0,0,0,0.16)",
+                    }}
+                  >
+                    <div
+                      className="inline-flex px-2 py-1 mb-3 text-[9px] uppercase tracking-widest"
+                      style={{
+                        background: TOKENS.brass,
+                        color: TOKENS.blueprintDeep,
+                        fontFamily: "'IBM Plex Mono', monospace",
+                      }}
+                    >
+                      Mayor detalle técnico
+                    </div>
                     <div className="text-xs uppercase tracking-widest mb-2" style={{ fontFamily: "'IBM Plex Mono', monospace", color: TOKENS.brass }}>
                       Informe 2 — $250.000 COP
                     </div>
-                    <p className="text-sm mb-3" style={{ color: TOKENS.inkDim }}>
-                      Todo lo del Informe 1, más memorias de cálculo, dimensiones y calidad estimada por etapa.
+                    <h3 className="text-lg mb-2" style={{ color: TOKENS.ink, fontFamily: "'Space Grotesk', sans-serif" }}>
+                      Informe técnico completo
+                    </h3>
+                    <p className="text-sm mb-3 leading-relaxed" style={{ color: TOKENS.inkDim }}>
+                      Todo lo del Informe 1, más memorias de cálculo, dimensiones y calidad
+                      estimada por etapa.
                     </p>
+                    <ul className="text-xs mb-4 space-y-1" style={{ color: TOKENS.inkDim }}>
+                      <li>✓ Memorias de cálculo</li>
+                      <li>✓ Dimensiones por unidad</li>
+                      <li>✓ Calidad estimada por etapa</li>
+                      <li>✓ Recomendaciones técnicas</li>
+                    </ul>
                     <button
-                      onClick={() => setVerEjemplo(!verEjemplo)}
-                      className="block mb-3 text-xs underline"
+                      type="button"
+                      onClick={() => {
+                        setVerEjemplo2(!verEjemplo2);
+                        if (!verEjemplo2) setVerEjemplo1(false);
+                      }}
+                      className="block mb-4 text-xs underline"
                       style={{ color: TOKENS.brass, background: "none", border: "none", cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace" }}
                     >
-                      {verEjemplo ? "Ocultar ejemplo" : "Ver ejemplo del Informe 2 →"}
+                      {verEjemplo2 ? "Ocultar ejemplo" : "Ver ejemplo del Informe 2 →"}
                     </button>
                     <button
                       type="button"
@@ -800,16 +946,103 @@ export default function App() {
                     </button>
                   </div>
 
-                  {verEjemplo && (
-                    <div className="md:col-span-2 p-5 rounded-sm" style={{ border: `1px dashed ${TOKENS.inkDim}` }}>
+                  {verEjemplo1 && (
+                    <div
+                      className="md:col-span-2 p-5 md:p-6 rounded-sm"
+                      style={{
+                        border: `1px solid ${TOKENS.brass}`,
+                        background: "rgba(7,42,64,0.72)",
+                      }}
+                    >
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-5">
+                        <div>
+                          <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
+                            Ejemplo del Informe 1 · caso ficticio
+                          </div>
+                          <h3 className="text-xl" style={{ color: TOKENS.ink, fontFamily: "'Space Grotesk', sans-serif" }}>
+                            Resumen técnico y económico
+                          </h3>
+                          <p className="text-xs mt-2" style={{ color: TOKENS.inkDim }}>
+                            {EJEMPLO_INFORME1.actividad} · Q = {EJEMPLO_INFORME1.caudal} L/s ·{" "}
+                            {EJEMPLO_INFORME1.vertimiento}
+                          </p>
+                        </div>
+                        <div
+                          className="p-3 min-w-[220px]"
+                          style={{ border: `1px solid ${TOKENS.grid}`, background: TOKENS.blueprintDeep }}
+                        >
+                          <div className="text-[9px] uppercase tracking-widest mb-1" style={{ color: TOKENS.inkDim, fontFamily: "'IBM Plex Mono', monospace" }}>
+                            Costo estructural preliminar
+                          </div>
+                          <div className="text-base font-semibold" style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
+                            ${EJEMPLO_INFORME1.costoMin.toLocaleString("es-CO")}–
+                            ${EJEMPLO_INFORME1.costoMax.toLocaleString("es-CO")} COP
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                          <div className="text-[10px] uppercase tracking-widest mb-3" style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
+                            Tren conceptual propuesto
+                          </div>
+                          <ol className="space-y-2">
+                            {EJEMPLO_INFORME1.tren.map((unidad, index) => (
+                              <li
+                                key={unidad}
+                                className="flex gap-3 p-3"
+                                style={{ border: `1px solid ${TOKENS.grid}` }}
+                              >
+                                <span style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
+                                  {String(index + 1).padStart(2, "0")}
+                                </span>
+                                <span className="text-xs" style={{ color: TOKENS.ink }}>
+                                  {unidad}
+                                </span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+
+                        <div>
+                          <div className="text-[10px] uppercase tracking-widest mb-3" style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
+                            Contenido entregado
+                          </div>
+                          <ul className="space-y-2">
+                            {EJEMPLO_INFORME1.alcance.map((item) => (
+                              <li
+                                key={item}
+                                className="flex gap-2 text-xs"
+                                style={{ color: TOKENS.inkDim }}
+                              >
+                                <span style={{ color: TOKENS.brass }}>✓</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+
+                          <div
+                            className="mt-5 p-4 text-xs leading-relaxed"
+                            style={{ borderLeft: `3px solid ${TOKENS.rust}`, color: TOKENS.inkDim }}
+                          >
+                            El valor mostrado corresponde a una estimación conceptual de estructuras
+                            principales. No reemplaza cotizaciones, diseño detallado ni presupuesto de obra.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {verEjemplo2 && (
+                    <div className="md:col-span-2 p-5 rounded-sm overflow-x-auto" style={{ border: `1px dashed ${TOKENS.inkDim}` }}>
                       <div className="text-[10px] uppercase tracking-widest mb-2" style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
-                        Ejemplo ilustrativo — no es su resultado
+                        Ejemplo del Informe 2 · caso ficticio
                       </div>
                       <p className="text-xs mb-3" style={{ color: TOKENS.inkDim }}>
                         {EJEMPLO_INFORME2.actividad} · Q = {EJEMPLO_INFORME2.caudal} L/s ·{" "}
                         {EJEMPLO_INFORME2.vertimiento} · Eficiencia requerida: {(EJEMPLO_INFORME2.eTotal * 100).toFixed(0)}%
                       </p>
-                      <table className="w-full text-xs" style={{ color: TOKENS.ink, borderCollapse: "collapse" }}>
+                      <table className="w-full min-w-[760px] text-xs" style={{ color: TOKENS.ink, borderCollapse: "collapse" }}>
                         <thead>
                           <tr style={{ color: TOKENS.brass, fontFamily: "'IBM Plex Mono', monospace" }}>
                             <th className="text-left pb-2">Unidad</th>

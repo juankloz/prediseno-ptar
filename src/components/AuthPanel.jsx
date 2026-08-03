@@ -43,24 +43,25 @@ export default function AuthPanel({ session, projectId, projectStatus, tokens })
           className="text-[10px] uppercase tracking-widest mb-1"
           style={{ color: tokens.brass, fontFamily: "'IBM Plex Mono', monospace" }}
         >
-          Cuenta y proyectos
+          Acceso y proyectos
         </div>
         {session ? (
           <>
             <p className="text-sm" style={{ color: tokens.ink }}>
-              Sesión verificada: <strong>{session.user.email}</strong>
+              Cuenta verificada: <strong>{session.user.email}</strong>
             </p>
             <p className="text-xs mt-1" style={{ color: tokens.inkDim }}>
               {projectId
-                ? `Proyecto guardado: ${projectId}`
-                : "El proyecto se guardará al calcular la vista previa."}
+                ? `Proyecto guardado en tu cuenta · Código ${projectId.slice(0, 8).toUpperCase()}`
+                : "El proyecto se guardará automáticamente cuando generes la vista previa."}
               {projectStatus === "saving" ? " · Guardando…" : ""}
             </p>
           </>
         ) : (
-          <p className="text-sm max-w-xl" style={{ color: tokens.inkDim }}>
-            La vista previa es gratuita. Inicia sesión por correo para guardar el proyecto y
-            vincular posteriormente un pago seguro a ese proyecto.
+          <p className="text-sm max-w-xl leading-relaxed" style={{ color: tokens.inkDim }}>
+            La vista previa es gratuita y no exige datos personales adicionales. Verifica tu
+            correo solamente para guardar proyectos, recuperar resultados y vincular un pago
+            seguro más adelante.
           </p>
         )}
       </div>
@@ -81,7 +82,7 @@ export default function AuthPanel({ session, projectId, projectStatus, tokens })
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            placeholder="correo@dominio.com"
+            placeholder="tu.correo@dominio.com"
             required
             className="min-w-0 flex-1 px-3 py-2 text-sm"
             style={{ color: "#071f2e", background: "#fff", border: "1px solid #94a3b8" }}
@@ -92,7 +93,7 @@ export default function AuthPanel({ session, projectId, projectStatus, tokens })
             className="px-4 py-2 text-xs uppercase tracking-widest"
             style={{ background: tokens.brass, color: tokens.blueprintDeep }}
           >
-            {busy ? "Enviando…" : "Enviar acceso"}
+            {busy ? "Enviando…" : "Verificar correo"}
           </button>
           {status && (
             <span className="text-xs sm:absolute sm:mt-11" style={{ color: tokens.inkDim }}>
